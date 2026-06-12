@@ -10,33 +10,33 @@ struct RunningMapExplorerView: View {
     @State private var isCalculatingRoute = false
     @State private var errorMessage: String?
     @State private var recenterTrigger = 0
+    @State private var popularLocations: [PopularLocation] = PopularLocationsService.defaults
+    @State private var isSearchSheetPresented = false
+
+    private let locationButtonGap: CGFloat = TrazoSpacing.md
 
     let onRouteReady: (RoutePlan) -> Void
 
+    private var locationButtonBottomInset: CGFloat {
+        RunningSearchMetrics.collapsedBarHeight + locationButtonGap
+    }
+
     var body: some View {
-        ZStack {
+        ZStack(alignment: .bottom) {
             RunningRouteMapView(
                 userLocation: locationManager.userLocation,
                 destination: destination,
                 routeCoordinates: [],
                 allowsPlacingPin: true,
                 recenterTrigger: recenterTrigger,
-                onMapTap: { coordinate in
-                    searchService.query = ""
-                    destination = MapDestination(name: "Destino seleccionado", coordinate: coordinate)
+                onMapLongPress: { coordinate in
+                    destination = MapDestination(name: "", coordinate: coordinate)
                 },
                 onPinDoubleTap: {
                     Task { await confirmDestination() }
                 }
             )
             .ignoresSafeArea()
-
-            VStack(spacing: 0) {
-                searchSection
-                    .padding(.horizontal, TrazoSpacing.lg)
-                    .padding(.top, TrazoSpacing.sm)
-                Spacer()
-            }
 
             VStack {
                 Spacer()
@@ -45,15 +45,26 @@ struct RunningMapExplorerView: View {
                     recenterButton
                 }
                 .padding(.trailing, TrazoSpacing.lg)
-                .padding(.bottom, TrazoSpacing.lg)
+                .padding(.bottom, locationButtonBottomInset)
             }
 
-            if isCalculatingRoute {
-                ProgressView("Calculando ruta...")
-                    .padding()
-                    .background(.ultraThinMaterial)
-                    .clipShape(RoundedRectangle(cornerRadius: TrazoRadius.md, style: .continuous))
+            RunningCollapsedSearchBar {
+                isSearchSheetPresented = true
             }
+        }
+        .toolbarBackground(.hidden, for: .tabBar)
+        .sheet(isPresented: $isSearchSheetPresented) {
+            RunningLocationSearchSheet(
+                searchService: searchService,
+                popularLocations: popularLocations,
+                onSelect: { selected in
+                    destination = selected
+                }
+            )
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+            .presentationCornerRadius(TrazoRadius.lg)
+            .presentationBackground(TrazoColors.background)
         }
         .alert("No se pudo crear la ruta", isPresented: .init(
             get: { errorMessage != nil },
@@ -66,6 +77,12 @@ struct RunningMapExplorerView: View {
         .onAppear {
             locationManager.requestPermission()
             locationManager.startUpdating()
+            updateSearchRegion()
+            Task { await loadPopularLocations() }
+        }
+        .onChange(of: locationManager.userLocation?.latitude) { _, _ in
+            updateSearchRegion()
+            Task { await loadPopularLocations() }
         }
         .onDisappear {
             locationManager.stopUpdating()
@@ -89,51 +106,14 @@ struct RunningMapExplorerView: View {
         .accessibilityLabel("Ir a mi ubicación")
     }
 
-    private var searchSection: some View {
-        VStack(spacing: TrazoSpacing.sm) {
-            TrazoSearchBar(text: $searchService.query, placeholder: "Buscar dirección")
-
-            if !searchService.results.isEmpty && !searchService.query.isEmpty {
-                VStack(spacing: 0) {
-                    ForEach(Array(searchService.results.enumerated()), id: \.offset) { index, result in
-                        Button {
-                            Task { await selectSearchResult(result) }
-                        } label: {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(result.title)
-                                    .font(TrazoTypography.body())
-                                    .foregroundStyle(TrazoColors.textPrimary)
-                                if !result.subtitle.isEmpty {
-                                    Text(result.subtitle)
-                                        .font(TrazoTypography.caption())
-                                        .foregroundStyle(TrazoColors.textSecondary)
-                                }
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(TrazoSpacing.md)
-                        }
-
-                        if index < searchService.results.count - 1 {
-                            Divider()
-                        }
-                    }
-                }
-                .background(.ultraThinMaterial)
-                .background(TrazoColors.elevated.opacity(0.9))
-                .clipShape(RoundedRectangle(cornerRadius: TrazoRadius.md, style: .continuous))
-            }
-        }
+    private func updateSearchRegion() {
+        guard let coordinate = locationManager.userLocation else { return }
+        searchService.setRegion(center: coordinate)
     }
 
-    private func selectSearchResult(_ result: MKLocalSearchCompletion) async {
-        do {
-            let resolved = try await searchService.resolve(result)
-            searchService.query = ""
-            searchService.results = []
-            destination = resolved
-        } catch {
-            errorMessage = error.localizedDescription
-        }
+    private func loadPopularLocations() async {
+        guard let coordinate = locationManager.userLocation else { return }
+        popularLocations = await PopularLocationsService.nearby(from: coordinate)
     }
 
     private func confirmDestination() async {

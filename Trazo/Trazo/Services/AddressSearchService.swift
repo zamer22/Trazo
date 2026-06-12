@@ -1,3 +1,4 @@
+import CoreLocation
 import Foundation
 import MapKit
 
@@ -21,6 +22,14 @@ final class AddressSearchService: NSObject {
         super.init()
         completer.delegate = self
         completer.resultTypes = [.address, .pointOfInterest]
+    }
+
+    func setRegion(center: CLLocationCoordinate2D) {
+        completer.region = MKCoordinateRegion(
+            center: center,
+            latitudinalMeters: 15_000,
+            longitudinalMeters: 15_000
+        )
     }
 
     func resolve(_ completion: MKLocalSearchCompletion) async throws -> MapDestination {

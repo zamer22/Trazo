@@ -18,8 +18,7 @@ struct TrazoMapStatCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(TrazoSpacing.lg)
-        .background(.ultraThinMaterial)
-        .background(TrazoColors.surface.opacity(0.55))
-        .clipShape(RoundedRectangle(cornerRadius: TrazoRadius.lg, style: .continuous))
+        .background(TrazoColors.elevated.opacity(0.35))
+        .clipShape(RoundedRectangle(cornerRadius: TrazoRadius.md, style: .continuous))
     }
 }

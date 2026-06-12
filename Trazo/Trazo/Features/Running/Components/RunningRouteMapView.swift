@@ -7,10 +7,17 @@ struct RunningRouteMapView: View {
     var routeCoordinates: [CLLocationCoordinate2D]
     var allowsPlacingPin: Bool = false
     var recenterTrigger: Int = 0
-    var onMapTap: ((CLLocationCoordinate2D) -> Void)?
+    var mapSize: CGSize = .zero
+    var mapEdgePadding: UIEdgeInsets = .zero
+    var onMapLongPress: ((CLLocationCoordinate2D) -> Void)?
     var onPinDoubleTap: (() -> Void)?
 
     @State private var cameraPosition: MapCameraPosition = .automatic
+    @State private var hasSetInitialCamera = false
+
+    private var usesEdgePaddingFit: Bool {
+        !routeCoordinates.isEmpty && mapSize.width > 0 && mapEdgePadding.bottom > 0
+    }
 
     var body: some View {
         MapReader { proxy in
@@ -18,7 +25,7 @@ struct RunningRouteMapView: View {
                 UserAnnotation()
 
                 if let destination {
-                    Annotation(destination.name, coordinate: destination.coordinate) {
+                    Annotation("", coordinate: destination.coordinate) {
                         if let onPinDoubleTap {
                             DestinationPinView(onDoubleTap: onPinDoubleTap)
                         } else {
@@ -48,15 +55,38 @@ struct RunningRouteMapView: View {
                 }
             }
             .mapStyle(.standard(elevation: .flat, emphasis: .muted))
-            .onAppear { updateCamera() }
-            .onChange(of: destination) { _, _ in updateCamera() }
-            .onChange(of: routeCoordinates.count) { _, _ in updateCamera() }
+            .onAppear { setInitialCameraIfNeeded() }
+            .onChange(of: routeCoordinates.count) { _, _ in fitRouteCamera() }
+            .onChange(of: mapEdgePadding.bottom) { _, _ in fitRouteCamera() }
+            .onChange(of: mapSize.height) { _, _ in fitRouteCamera() }
             .onChange(of: recenterTrigger) { _, _ in centerOnUser() }
-            .onTapGesture { screenPoint in
-                guard allowsPlacingPin, let onMapTap,
-                      let coordinate = proxy.convert(screenPoint, from: .local) else { return }
-                onMapTap(coordinate)
+            .simultaneousGesture(longPressGesture(proxy: proxy))
+        }
+    }
+
+    private func longPressGesture(proxy: MapProxy) -> some Gesture {
+        LongPressGesture(minimumDuration: 0.5)
+            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .local))
+            .onEnded { value in
+                guard allowsPlacingPin,
+                      let onMapLongPress,
+                      case .second(true, let drag?) = value,
+                      let coordinate = proxy.convert(drag.location, from: .local) else { return }
+                onMapLongPress(coordinate)
             }
+    }
+
+    private func setInitialCameraIfNeeded() {
+        guard !hasSetInitialCamera else { return }
+        hasSetInitialCamera = true
+
+        if !routeCoordinates.isEmpty {
+            fitRouteCamera()
+        } else if let userLocation {
+            cameraPosition = .region(MKCoordinateRegion(
+                center: userLocation,
+                span: MKCoordinateSpan(latitudeDelta: 0.012, longitudeDelta: 0.012)
+            ))
         }
     }
 
@@ -72,23 +102,15 @@ struct RunningRouteMapView: View {
         ))
     }
 
-    private func updateCamera() {
-        if !routeCoordinates.isEmpty {
-            let polyline = MKPolyline(coordinates: routeCoordinates, count: routeCoordinates.count)
-            let rect = polyline.boundingMapRect
-            cameraPosition = .rect(rect.insetBy(dx: -rect.width * 0.25, dy: -rect.height * 0.25))
-        } else if let destination {
-            cameraPosition = .region(MKCoordinateRegion(
-                center: destination.coordinate,
-                span: MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02)
-            ))
-        } else if let userLocation {
-            cameraPosition = .region(MKCoordinateRegion(
-                center: userLocation,
-                span: MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02)
-            ))
-        } else {
-            cameraPosition = .automatic
+    private func fitRouteCamera() {
+        guard !routeCoordinates.isEmpty else { return }
+
+        if usesEdgePaddingFit {
+            cameraPosition = MapCameraFitter.cameraPosition(
+                for: routeCoordinates,
+                mapSize: mapSize,
+                edgePadding: mapEdgePadding
+            )
         }
     }
 }
