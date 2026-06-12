@@ -7,6 +7,7 @@ struct RouteSummaryView: View {
     let plan: RoutePlan
 
     @State private var statsPanelHeight: CGFloat = 320
+    @State private var isRunningActive = false
 
     var body: some View {
         GeometryReader { geometry in
@@ -83,9 +84,14 @@ struct RouteSummaryView: View {
             }
             .padding(.horizontal, TrazoSpacing.lg)
 
-            TrazoButton(title: "Empezar a correr") {}
-                .padding(.horizontal, TrazoSpacing.lg)
-                .padding(.bottom, TrazoSpacing.lg)
+            TrazoButton(title: "Empezar a correr") {
+                isRunningActive = true
+            }
+            .padding(.horizontal, TrazoSpacing.lg)
+            .padding(.bottom, TrazoSpacing.lg)
+            .fullScreenCover(isPresented: $isRunningActive) {
+                RunningActiveView(plan: plan)
+            }
         }
         .frame(maxWidth: .infinity)
         .background {

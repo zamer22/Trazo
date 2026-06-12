@@ -6,6 +6,7 @@ import Foundation
 final class LocationManager: NSObject {
     var authorizationStatus: CLAuthorizationStatus = .notDetermined
     var userLocation: CLLocationCoordinate2D?
+    var lastFullLocation: CLLocation?
     var lastError: String?
 
     private let manager = CLLocationManager()
@@ -45,6 +46,7 @@ extension LocationManager: CLLocationManagerDelegate {
         guard let location = locations.last else { return }
         Task { @MainActor in
             userLocation = location.coordinate
+            lastFullLocation = location
         }
     }
 

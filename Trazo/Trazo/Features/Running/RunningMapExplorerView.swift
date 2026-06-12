@@ -13,6 +13,7 @@ struct RunningMapExplorerView: View {
     @State private var popularLocations: [PopularLocation] = PopularLocationsService.defaults
     @State private var isSearchSheetPresented = false
     @State private var isAISheetPresented = false
+    @State private var esIdaVuelta = false
 
     private let locationButtonGap: CGFloat = TrazoSpacing.md
 
@@ -51,8 +52,13 @@ struct RunningMapExplorerView: View {
                 .padding(.bottom, locationButtonBottomInset)
             }
 
-            RunningCollapsedSearchBar {
-                isSearchSheetPresented = true
+            VStack(spacing: 0) {
+                if destination != nil {
+                    modoRutaBar
+                }
+                RunningCollapsedSearchBar {
+                    isSearchSheetPresented = true
+                }
             }
         }
         .toolbarBackground(.hidden, for: .tabBar)
@@ -100,6 +106,46 @@ struct RunningMapExplorerView: View {
         .onDisappear {
             locationManager.stopUpdating()
         }
+    }
+
+    private var modoRutaBar: some View {
+        HStack(spacing: TrazoSpacing.md) {
+            Button {
+                esIdaVuelta = false
+            } label: {
+                Label("Solo ida", systemImage: "arrow.right")
+                    .font(TrazoTypography.caption())
+                    .foregroundStyle(!esIdaVuelta ? .white : TrazoColors.textSecondary)
+                    .padding(.horizontal, TrazoSpacing.md)
+                    .padding(.vertical, TrazoSpacing.sm)
+                    .background(!esIdaVuelta ? TrazoColors.routeTeal : Color.clear)
+                    .clipShape(Capsule())
+            }
+            Button {
+                esIdaVuelta = true
+            } label: {
+                Label("Ida y vuelta", systemImage: "arrow.left.arrow.right")
+                    .font(TrazoTypography.caption())
+                    .foregroundStyle(esIdaVuelta ? .white : TrazoColors.textSecondary)
+                    .padding(.horizontal, TrazoSpacing.md)
+                    .padding(.vertical, TrazoSpacing.sm)
+                    .background(esIdaVuelta ? TrazoColors.routeTeal : Color.clear)
+                    .clipShape(Capsule())
+            }
+            Spacer()
+            Button {
+                destination = nil
+                esIdaVuelta = false
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(TrazoColors.textSecondary)
+            }
+        }
+        .padding(.horizontal, TrazoSpacing.lg)
+        .padding(.vertical, TrazoSpacing.sm)
+        .background(.ultraThinMaterial)
+        .background(TrazoColors.elevated.opacity(0.9))
     }
 
     private var aiButton: some View {
@@ -161,11 +207,14 @@ struct RunningMapExplorerView: View {
         defer { isCalculatingRoute = false }
 
         do {
-            let plan = try await RouteCalculator.calculate(
-                to: destination,
-                from: userLocation,
-                profile: profile
-            )
+            let plan: RoutePlan
+            if esIdaVuelta {
+                plan = try await RouteCalculator.calculateRoundTrip(
+                    to: destination, from: userLocation, profile: profile)
+            } else {
+                plan = try await RouteCalculator.calculate(
+                    to: destination, from: userLocation, profile: profile)
+            }
             onRouteReady(plan)
         } catch {
             errorMessage = error.localizedDescription
