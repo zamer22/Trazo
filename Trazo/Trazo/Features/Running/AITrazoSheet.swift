@@ -25,6 +25,7 @@ struct AITrazoSheet: View {
     @State private var modoRuta: ModoRuta = .circular
     @State private var routeError: String?
     @State private var intentRazon: String?
+    @State private var activeBearings: [Double] = [45, 165, 285]
     @FocusState private var inputFocused: Bool
 
     let userLocation: CLLocationCoordinate2D?
@@ -52,7 +53,7 @@ struct AITrazoSheet: View {
                 .padding(.top, TrazoSpacing.xl)
                 .padding(.bottom, TrazoSpacing.xxxl)
             }
-            if case .opciones = estadoRutas { } else {
+            if !isOcupado {
                 botonPrincipal
                     .padding(.horizontal, TrazoSpacing.xl)
                     .padding(.bottom, TrazoSpacing.xl)
@@ -86,6 +87,14 @@ struct AITrazoSheet: View {
                 Text("Trazo IA").font(TrazoTypography.title()).foregroundStyle(TrazoColors.textPrimary)
             }
             Spacer()
+            if inputFocused {
+                Button { inputFocused = false } label: {
+                    Image(systemName: "keyboard.chevron.compact.down")
+                        .font(.title3)
+                        .foregroundStyle(TrazoColors.textSecondary)
+                }
+                .transition(.opacity)
+            }
             Button { dismiss() } label: {
                 Image(systemName: "xmark.circle.fill").font(.title2).foregroundStyle(TrazoColors.textSecondary)
             }
@@ -123,7 +132,7 @@ struct AITrazoSheet: View {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: TrazoSpacing.sm)], spacing: TrazoSpacing.sm) {
                 ForEach(sugerencias, id: \.self) { s in
                     Button { promptText = s; inputFocused = false } label: {
-                        Text(s).font(TrazoTypography.caption()).foregroundStyle(TrazoColors.routeTeal)
+                        Text(s.uppercased()).font(TrazoTypography.caption()).foregroundStyle(TrazoColors.routeTeal)
                             .frame(maxWidth: .infinity)
                             .padding(.horizontal, TrazoSpacing.md).padding(.vertical, TrazoSpacing.sm)
                             .background(TrazoColors.routeTeal.opacity(0.12))
@@ -175,7 +184,7 @@ struct AITrazoSheet: View {
                 .clipShape(RoundedRectangle(cornerRadius: TrazoRadius.sm, style: .continuous))
             }
             ForEach(Array(planes.enumerated()), id: \.element.id) { idx, plan in
-                routeOptionCard(plan: plan, bearing: bearings[safe: idx] ?? Double(idx * 90))
+                routeOptionCard(plan: plan, bearing: activeBearings[safe: idx] ?? Double(idx * 90))
             }
         }
     }
@@ -270,7 +279,12 @@ struct AITrazoSheet: View {
     @ViewBuilder
     private var botonPrincipal: some View {
         switch estadoRutas {
-        case .inactivo, .error:
+        case .opciones:
+            TrazoButton(title: "Regenerar opciones", style: .secondary) {
+                inputFocused = false
+                Task { await generarOpciones() }
+            }
+        default:
             TrazoButton(
                 title: "Generar opciones",
                 isEnabled: !promptText.trimmingCharacters(in: .whitespaces).isEmpty
@@ -278,8 +292,6 @@ struct AITrazoSheet: View {
                 inputFocused = false
                 Task { await generarOpciones() }
             }
-        default:
-            EmptyView()
         }
     }
 
@@ -309,8 +321,9 @@ struct AITrazoSheet: View {
         intentRazon = intent.razon.isEmpty ? nil : intent.razon
         estadoRutas = .generando
 
+        activeBearings = bearings.map { $0 + Double.random(in: -35...35) }
         let planes = await withTaskGroup(of: RoutePlan?.self) { group in
-            for bearing in bearings {
+            for bearing in activeBearings {
                 group.addTask {
                     switch self.modoRuta {
                     case .circular:

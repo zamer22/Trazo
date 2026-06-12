@@ -34,11 +34,7 @@ struct MarioKartSessionView: View {
             clubService.iniciarPollingSesion(clubId: club.id)
         }
         .onDisappear { clubService.detenerPolling() }
-        .onChange(of: clubService.sesionActiva?.estado) { _, estado in
-            if estado == "corriendo", let json = clubService.sesionActiva?.rutaGanadoraJson {
-                decodificarYCorrer(json)
-            }
-        }
+        .onChange(of: clubService.sesionActiva?.estado) { _, _ in }
         .onChange(of: clubService.sesionActiva) { _, nueva in
             if nueva == nil { dismiss() }
         }
@@ -196,12 +192,6 @@ struct MarioKartSessionView: View {
                             .background(voté ? TrazoColors.routeTeal : TrazoColors.routeTeal.opacity(0.12))
                             .clipShape(Capsule())
                         }
-                    } else if esModoRuleta {
-                        HStack(spacing: 4) {
-                            Image(systemName: "hand.thumbsup")
-                            Text("\(ruta.votos)")
-                        }
-                        .font(TrazoTypography.caption()).foregroundStyle(TrazoColors.textSecondary)
                     }
                 }
             }

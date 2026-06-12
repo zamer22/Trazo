@@ -576,6 +576,7 @@ struct RestauranteDetalleSheet: View {
                     .foregroundStyle(TrazoColors.accentOrange)
                 Text("Tu calificación")
                     .font(TrazoTypography.headline()).foregroundStyle(TrazoColors.textPrimary)
+                Spacer()
             }
             HStack(spacing: TrazoSpacing.md) {
                 ForEach(1...5, id: \.self) { star in
@@ -590,8 +591,10 @@ struct RestauranteDetalleSheet: View {
                     .buttonStyle(.plain)
                 }
                 if guardandoRating { ProgressView().scaleEffect(0.8) }
+                Spacer()
             }
         }
+        .frame(maxWidth: .infinity)
         .padding(TrazoSpacing.lg)
         .background(TrazoColors.surface)
         .clipShape(RoundedRectangle(cornerRadius: TrazoRadius.md, style: .continuous))

@@ -69,7 +69,7 @@ struct CommunityHomeView: View {
             accionBtn(icon: "plus.circle.fill", label: "Crear club", color: TrazoColors.routeTeal) {
                 mostrarCrear = true
             }
-            accionBtn(icon: "qrcode.viewfinder", label: "Unirse con código", color: TrazoColors.accentOrange) {
+            accionBtn(icon: "key.fill", label: "Unirse con código", color: TrazoColors.accentOrange) {
                 mostrarUnirse = true
             }
             accionBtn(icon: "magnifyingglass.circle.fill", label: "Explorar", color: .purple) {
@@ -151,7 +151,7 @@ struct CommunityHomeView: View {
     private var unirseSheet: some View {
         NavigationStack {
             VStack(spacing: TrazoSpacing.xl) {
-                Image(systemName: "qrcode.viewfinder").font(.system(size: 56)).foregroundStyle(TrazoColors.accentOrange)
+                Image(systemName: "key.fill").font(.system(size: 56)).foregroundStyle(TrazoColors.accentOrange)
                 Text("Ingresa el código del club")
                     .font(TrazoTypography.title()).foregroundStyle(TrazoColors.textPrimary)
                 TextField("Ej: ABCD12", text: $codigoIngresado)

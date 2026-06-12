@@ -16,12 +16,15 @@ struct RunningActiveView: View {
     @State private var barraStatsHeight: CGFloat = 160
     @State private var siguiendoUsuario = true
     @State private var actualizandoCamara = false
+    @State private var mostrarConfirmarFinalizar = false
 
     let plan: RoutePlan
+    private let voiceNav: VoiceNavigationService
 
     init(plan: RoutePlan) {
         self.plan = plan
         self._sessionTracker = State(initialValue: RunningSessionTracker(plan: plan))
+        self.voiceNav = VoiceNavigationService(coordenadas: plan.coordinates)
     }
 
     var body: some View {
@@ -82,20 +85,27 @@ struct RunningActiveView: View {
             locationManager.requestPermission()
             locationManager.startUpdating()
             sessionTracker.iniciar()
+            voiceNav.iniciarRuta()
             Task { await cargarPines() }
         }
         .onDisappear {
             sessionTracker.pausar()
             locationManager.stopUpdating()
+            voiceNav.detener()
         }
         .onChange(of: locationManager.userLocation?.latitude) { _, _ in
             guard let loc = locationManager.userLocation else { return }
             seguirConCamara(loc)
             sessionTracker.actualizarUbicacion(loc)
+            voiceNav.actualizarPosicion(indiceActual: sessionTracker.indiceMasCercano)
             verificarPinesCercanos(loc)
             if sessionTracker.haTerminado && statsFinales == nil {
+                voiceNav.anunciarCompletada()
                 finalizarConStats(completado: true)
             }
+        }
+        .onChange(of: sessionTracker.estaFueraDeRuta) { _, fueraDeRuta in
+            if fueraDeRuta { voiceNav.anunciarFueraDeRuta() }
         }
         .onChange(of: locationManager.lastFullLocation?.timestamp) { _, _ in
             guard let loc = locationManager.lastFullLocation else { return }
@@ -172,8 +182,7 @@ struct RunningActiveView: View {
     private var barraTop: some View {
         HStack {
             Button {
-                sessionTracker.pausar()
-                finalizarConStats(completado: false)
+                mostrarConfirmarFinalizar = true
             } label: {
                 HStack(spacing: TrazoSpacing.xs) {
                     Image(systemName: "stop.fill")
@@ -187,6 +196,17 @@ struct RunningActiveView: View {
                 .background(Color.red.opacity(0.88))
                 .clipShape(Capsule())
                 .shadow(color: Color.red.opacity(0.4), radius: 6, y: 2)
+            }
+            .accessibilityLabel("Finalizar corrida")
+            .accessibilityHint("Detiene la sesión y muestra el resumen de tu corrida")
+            .confirmationDialog("¿Finalizar corrida?", isPresented: $mostrarConfirmarFinalizar, titleVisibility: .visible) {
+                Button("Finalizar", role: .destructive) {
+                    sessionTracker.pausar()
+                    finalizarConStats(completado: false)
+                }
+                Button("Cancelar", role: .cancel) {}
+            } message: {
+                Text("Se guardará tu progreso hasta este punto.")
             }
             Spacer()
             HStack(spacing: TrazoSpacing.xs) {
@@ -238,7 +258,8 @@ struct RunningActiveView: View {
                     .clipShape(Circle())
                     .shadow(color: TrazoColors.accentOrange.opacity(0.5), radius: 8, y: 3)
             }
-            .accessibilityLabel("Reportar problema en la ruta")
+            .accessibilityLabel("Reportar problema")
+            .accessibilityHint("Abre la cámara para fotografiar y reportar un obstáculo o peligro en la ruta")
         }
         .animation(.spring(duration: 0.3), value: siguiendoUsuario)
     }
@@ -247,11 +268,6 @@ struct RunningActiveView: View {
 
     private var panelStats: some View {
         VStack(spacing: 0) {
-            Capsule()
-                .fill(Color.white.opacity(0.25))
-                .frame(width: 36, height: 4)
-                .padding(.top, TrazoSpacing.md)
-
             HStack(spacing: 0) {
                 statItem(valor: String(format: "%.2f", sessionTracker.distanciaRecorridaKm), unidad: "KM", label: "Recorrido")
                 Divider().frame(height: 40).opacity(0.2)
@@ -377,14 +393,14 @@ struct RunningActiveView: View {
     }
 
     private func verificarPinesCercanos(_ loc: CLLocationCoordinate2D) {
-        guard mostrarAlertaPin == nil else { return }
         let locUsuario = CLLocation(latitude: loc.latitude, longitude: loc.longitude)
         let pinCercano = pines.first { pin in
             let locPin = CLLocation(latitude: pin.latitud, longitude: pin.longitud)
-            return locUsuario.distance(from: locPin) < 80 // dentro de 80m
+            return locUsuario.distance(from: locPin) < 80
         }
         if let pin = pinCercano {
-            mostrarAlertaPin = pin
+            if mostrarAlertaPin == nil { mostrarAlertaPin = pin }
+            voiceNav.anunciarPinCercano(pin.etiqueta)
         }
     }
 }

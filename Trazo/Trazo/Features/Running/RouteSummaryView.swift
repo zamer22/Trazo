@@ -12,7 +12,7 @@ struct RouteSummaryView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let topPadding = geometry.safeAreaInsets.top + 56
+            let topPadding = geometry.safeAreaInsets.top + 80
             let bottomPadding = statsPanelHeight
 
             ZStack(alignment: .bottom) {
@@ -66,11 +66,7 @@ struct RouteSummaryView: View {
 
     private var statsPanel: some View {
         VStack(spacing: TrazoSpacing.md) {
-            Capsule()
-                .fill(TrazoColors.textSecondary.opacity(0.35))
-                .frame(width: 40, height: 5)
-                .padding(.top, TrazoSpacing.sm)
-
+            Color.clear.frame(height: TrazoSpacing.md)
             if let razon = plan.aiRazon {
                 HStack(alignment: .top, spacing: TrazoSpacing.sm) {
                     Image(systemName: "sparkles").font(.caption.weight(.semibold)).foregroundStyle(TrazoColors.accentOrange)
@@ -103,6 +99,8 @@ struct RouteSummaryView: View {
                     isRunningActive = true
                 }
             }
+            .accessibilityLabel("Empezar a correr esta ruta")
+            .accessibilityHint("Inicia la navegación guiada por voz hacia \(plan.destinationName)")
             .padding(.horizontal, TrazoSpacing.lg)
             .padding(.bottom, TrazoSpacing.lg)
             .fullScreenCover(isPresented: $isRunningActive, onDismiss: { dismiss() }) {

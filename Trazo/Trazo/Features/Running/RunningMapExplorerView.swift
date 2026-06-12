@@ -63,6 +63,8 @@ struct RunningMapExplorerView: View {
                     isSearchSheetPresented = true
                 }
             }
+            .background(.ultraThinMaterial)
+            .background(TrazoColors.elevated.opacity(0.9))
         }
         .toolbarBackground(.hidden, for: .tabBar)
         .sheet(isPresented: $isAISheetPresented) {
@@ -184,9 +186,8 @@ struct RunningMapExplorerView: View {
             .disabled(isCalculatingRoute)
         }
         .padding(.horizontal, TrazoSpacing.lg)
-        .padding(.vertical, TrazoSpacing.md)
-        .background(.ultraThinMaterial)
-        .background(TrazoColors.elevated.opacity(0.9))
+        .padding(.top, TrazoSpacing.md)
+        .padding(.bottom, TrazoSpacing.sm)
     }
 
     private func modoChip(titulo: String, icono: String, activo: Bool, accion: @escaping () -> Void) -> some View {

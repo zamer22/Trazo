@@ -1,6 +1,38 @@
 import CoreLocation
-import PhotosUI
 import SwiftUI
+import UIKit
+
+// MARK: - Camera picker wrapper
+
+private struct CameraPicker: UIViewControllerRepresentable {
+    let onImage: (UIImage) -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator(onImage: onImage) }
+
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let vc = UIImagePickerController()
+        vc.sourceType = UIImagePickerController.isSourceTypeAvailable(.camera) ? .camera : .photoLibrary
+        vc.delegate = context.coordinator
+        return vc
+    }
+
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+
+    class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+        let onImage: (UIImage) -> Void
+        init(onImage: @escaping (UIImage) -> Void) { self.onImage = onImage }
+
+        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
+            if let img = info[.editedImage] as? UIImage ?? info[.originalImage] as? UIImage {
+                onImage(img)
+            }
+            picker.dismiss(animated: true)
+        }
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+            picker.dismiss(animated: true)
+        }
+    }
+}
 
 struct PinReporteSheet: View {
     @Environment(\.currentUserProfile) private var profile
@@ -13,7 +45,7 @@ struct PinReporteSheet: View {
 
     @State private var modo: ModoPicker = .foto
     @State private var clasificador = ClasificadorFotoService()
-    @State private var imagenSeleccionada: PhotosPickerItem?
+    @State private var mostrarCamara = false
     @State private var imagenUI: UIImage?
     @State private var tipoManual: String? = nil
     @State private var guardando = false
@@ -37,7 +69,6 @@ struct PinReporteSheet: View {
                 .onChange(of: modo) { _, _ in
                     tipoManual = nil
                     clasificador.reiniciar()
-                    imagenSeleccionada = nil
                     imagenUI = nil
                 }
                 Divider().opacity(0.15)
@@ -96,11 +127,7 @@ struct PinReporteSheet: View {
                 .font(TrazoTypography.caption())
                 .foregroundStyle(TrazoColors.textSecondary)
 
-            PhotosPicker(
-                selection: $imagenSeleccionada,
-                matching: .images,
-                photoLibrary: .shared()
-            ) {
+            Button { mostrarCamara = true } label: {
                 ZStack {
                     RoundedRectangle(cornerRadius: TrazoRadius.md, style: .continuous)
                         .fill(TrazoColors.surface)
@@ -117,15 +144,20 @@ struct PinReporteSheet: View {
                             Image(systemName: "camera.fill")
                                 .font(.largeTitle)
                                 .foregroundStyle(TrazoColors.textSecondary)
-                            Text("Selecciona una foto")
+                            Text("Tomar foto")
                                 .font(TrazoTypography.body())
                                 .foregroundStyle(TrazoColors.textSecondary)
                         }
                     }
                 }
             }
-            .onChange(of: imagenSeleccionada) { _, nuevo in
-                Task { await cargarImagen(nuevo) }
+            .buttonStyle(.plain)
+            .fullScreenCover(isPresented: $mostrarCamara) {
+                CameraPicker { img in
+                    imagenUI = img
+                    Task { await clasificador.analizar(img) }
+                }
+                .ignoresSafeArea()
             }
         }
     }
@@ -247,14 +279,6 @@ struct PinReporteSheet: View {
     }
 
     // MARK: - Lógica
-
-    private func cargarImagen(_ item: PhotosPickerItem?) async {
-        guard let item,
-              let data = try? await item.loadTransferable(type: Data.self),
-              let uiImage = UIImage(data: data) else { return }
-        imagenUI = uiImage
-        await clasificador.analizar(uiImage)
-    }
 
     private func guardarPin(tipo: String) async {
         guard let loc = userLocation, let uid = userId ?? profile?.id else {
