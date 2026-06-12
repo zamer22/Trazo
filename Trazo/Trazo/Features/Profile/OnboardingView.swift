@@ -7,7 +7,6 @@ struct OnboardingView: View {
     @Query private var profiles: [UserProfile]
 
     @State private var step = 0
-    @State private var displayName = ""
     @State private var weightKg = 70.0
     @State private var fitnessLevel: FitnessLevel = .beginner
     @State private var averagePace = 6.5
@@ -49,6 +48,8 @@ struct OnboardingView: View {
         }
     }
 
+    // MARK: - Indicador de progreso
+
     private var progressIndicator: some View {
         HStack(spacing: TrazoSpacing.sm) {
             ForEach(0..<totalSteps, id: \.self) { index in
@@ -59,6 +60,8 @@ struct OnboardingView: View {
         }
     }
 
+    // MARK: - Paso 1: Bienvenida
+
     private var welcomeStep: some View {
         VStack(alignment: .leading, spacing: TrazoSpacing.xl) {
             Spacer()
@@ -67,30 +70,20 @@ struct OnboardingView: View {
                 .font(.system(size: 64))
                 .foregroundStyle(TrazoColors.routeTeal)
 
-            Text("Bienvenido a Trazo")
+            Text("¡Hola, \(auth.nombreRegistro)!")
                 .font(TrazoTypography.largeTitle())
                 .foregroundStyle(TrazoColors.textPrimary)
 
-            Text("Cuéntanos un poco sobre ti para personalizar tus Trazos de running.")
+            Text("Cuéntanos un poco sobre ti para personalizar tus Trazos con IA.")
                 .font(TrazoTypography.body())
                 .foregroundStyle(TrazoColors.textSecondary)
-
-            VStack(alignment: .leading, spacing: TrazoSpacing.sm) {
-                Text("Tu nombre")
-                    .font(TrazoTypography.caption())
-                    .foregroundStyle(TrazoColors.textSecondary)
-
-                TextField("Ej. Diego", text: $displayName)
-                    .font(TrazoTypography.body())
-                    .padding(TrazoSpacing.lg)
-                    .background(TrazoColors.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: TrazoRadius.md, style: .continuous))
-            }
 
             Spacer()
         }
         .padding(.horizontal, TrazoSpacing.xl)
     }
+
+    // MARK: - Paso 2: Condición física
 
     private var fitnessStep: some View {
         VStack(alignment: .leading, spacing: TrazoSpacing.xl) {
@@ -150,7 +143,7 @@ struct OnboardingView: View {
         TrazoCard {
             VStack(alignment: .leading, spacing: TrazoSpacing.md) {
                 HStack(spacing: TrazoSpacing.md) {
-                    Image(systemName: "heart.text.square.fill")
+                    Image(systemName: healthLinked ? "heart.fill" : "heart.text.square.fill")
                         .font(.system(size: 28))
                         .foregroundStyle(TrazoColors.accentOrange)
 
@@ -159,7 +152,7 @@ struct OnboardingView: View {
                             .font(TrazoTypography.headline())
                             .foregroundStyle(TrazoColors.textPrimary)
                         Text(healthLinked
-                             ? "Tus datos se usan para personalizar rutas con IA."
+                             ? "Tus datos se usan para personalizar Trazos con IA."
                              : "Importa peso, ritmo y VO₂ máx automáticamente.")
                             .font(TrazoTypography.caption())
                             .foregroundStyle(TrazoColors.textSecondary)
@@ -184,6 +177,8 @@ struct OnboardingView: View {
             }
         }
     }
+
+    // MARK: - Paso 3: Preferencias
 
     private var preferencesStep: some View {
         VStack(alignment: .leading, spacing: TrazoSpacing.xl) {
@@ -219,6 +214,8 @@ struct OnboardingView: View {
         .padding(.horizontal, TrazoSpacing.xl)
     }
 
+    // MARK: - Barra inferior
+
     private var bottomBar: some View {
         HStack(spacing: TrazoSpacing.md) {
             if step > 0 {
@@ -240,9 +237,7 @@ struct OnboardingView: View {
         }
     }
 
-    private var canAdvance: Bool {
-        step != 0 || !displayName.trimmingCharacters(in: .whitespaces).isEmpty
-    }
+    private var canAdvance: Bool { true }
 
     private var formattedPace: String {
         let minutes = Int(averagePace)
@@ -250,9 +245,10 @@ struct OnboardingView: View {
         return String(format: "%d:%02d /km", minutes, seconds)
     }
 
+    // MARK: - Lógica
+
     private func cargarDesdePerfil() {
         guard let profile else { return }
-        if displayName.isEmpty { displayName = profile.displayName }
         weightKg = profile.weightKg
         fitnessLevel = profile.fitnessLevel
         averagePace = profile.averagePaceMinPerKm
@@ -274,24 +270,37 @@ struct OnboardingView: View {
                 profile?.applyHealthSnapshot(snap)
                 healthLinked = true
             } catch {
-                healthError = "No se pudo acceder a Salud. Puedes seguir capturando manualmente."
+                healthError = "No se pudo acceder a Salud. Puedes continuar manualmente."
             }
             importandoHealth = false
         }
     }
 
     private func completeOnboarding() {
-        guard let profile else { return }
-        profile.displayName = displayName.trimmingCharacters(in: .whitespaces)
-        profile.weightKg = weightKg
-        profile.fitnessLevel = fitnessLevel
-        profile.averagePaceMinPerKm = averagePace
-        profile.preferFlatRoutes = preferFlatRoutes
-        profile.avoidHighways = avoidHighways
-        profile.hasCompletedOnboarding = true
+        guard let uid = auth.userId, let correo = auth.email else { return }
+
+        let perfil: UserProfile
+        if let existente = profile {
+            perfil = existente
+        } else {
+            perfil = UserProfile(id: uid, email: correo, remoto: nil)
+            modelContext.insert(perfil)
+        }
+
+        perfil.displayName = auth.nombreRegistro.trimmingCharacters(in: .whitespaces)
+        perfil.weightKg = weightKg
+        perfil.fitnessLevel = fitnessLevel
+        perfil.averagePaceMinPerKm = averagePace
+        perfil.preferFlatRoutes = preferFlatRoutes
+        perfil.avoidHighways = avoidHighways
+        perfil.healthLinked = healthLinked
+        perfil.hasCompletedOnboarding = true
+
+        // Marcar aquí hace que RootView cambie a MainTabView
+        auth.marcarOnboardingCompleto()
 
         Task {
-            try? await UserProfileRepository.upsert(profile)
+            try? await UserProfileRepository.upsert(perfil)
         }
     }
 }

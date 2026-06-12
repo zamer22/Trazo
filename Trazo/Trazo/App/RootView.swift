@@ -4,6 +4,7 @@ import SwiftUI
 struct RootView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var auth = AuthService()
+    @State private var sincronizando = false
     @Query private var profiles: [UserProfile]
 
     private var activeProfile: UserProfile? {
@@ -15,11 +16,13 @@ struct RootView: View {
         Group {
             if !auth.isSignedIn {
                 AuthView()
-            } else if let profile = activeProfile, profile.hasCompletedOnboarding {
-                MainTabView()
-                    .environment(\.currentUserProfile, profile)
-            } else {
+            } else if auth.registroReciente {
                 OnboardingView()
+            } else if sincronizando {
+                pantallaEspera
+            } else {
+                MainTabView()
+                    .environment(\.currentUserProfile, activeProfile)
             }
         }
         .environment(auth)
@@ -29,13 +32,28 @@ struct RootView: View {
         }
     }
 
+    private var pantallaEspera: some View {
+        VStack(spacing: TrazoSpacing.md) {
+            Image(systemName: "figure.run.circle.fill")
+                .font(.system(size: 56))
+                .foregroundStyle(TrazoColors.routeTeal)
+            ProgressView()
+                .tint(TrazoColors.routeTeal)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
     private func syncProfile() async {
         guard let uid = auth.userId, let correo = auth.email else { return }
-        if profiles.first(where: { $0.id == uid }) != nil { return }
+        guard !auth.registroReciente else { return } // registro nuevo: completeOnboarding crea el perfil
+        guard activeProfile == nil else { return }   // login existente: perfil ya en SwiftData
+
+        sincronizando = true
+        defer { sincronizando = false }
 
         let remoto = try? await UserProfileRepository.fetch(userId: uid)
-        let profile = UserProfile(id: uid, email: correo, remoto: remoto)
-        modelContext.insert(profile)
+        let perfil = UserProfile(id: uid, email: correo, remoto: remoto)
+        modelContext.insert(perfil)
     }
 }
 
@@ -50,7 +68,7 @@ extension EnvironmentValues {
     }
 }
 
-#Preview("Onboarding") {
+#Preview {
     RootView()
         .modelContainer(for: UserProfile.self, inMemory: true)
 }

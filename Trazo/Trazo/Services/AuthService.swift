@@ -33,14 +33,22 @@ final class AuthService {
     var isSignedIn: Bool { session != nil }
     var userId: UUID? { session?.user.id }
     var email: String? { session?.user.email }
+    private(set) var registroReciente = false
+    private(set) var nombreRegistro = ""
 
     init() {
         listenerTask = Task { [weak self] in
             guard let self else { return }
             for await (_, sesion) in client.auth.authStateChanges {
                 self.session = sesion
+                // Al cerrar sesión, limpiar el flag para que el próximo login vaya directo al mapa
+                if sesion == nil { self.registroReciente = false }
             }
         }
+    }
+
+    func marcarOnboardingCompleto() {
+        registroReciente = false
     }
 
     func signUp(correo: String, contrasena: String, nombreUsuario: String) async throws {
@@ -53,6 +61,8 @@ final class AuthService {
                 data: ["nombre_usuario": .string(nombreUsuario)]
             )
             self.session = respuesta.session
+            self.registroReciente = true
+            self.nombreRegistro = nombreUsuario
         } catch {
             throw mapError(error)
         }

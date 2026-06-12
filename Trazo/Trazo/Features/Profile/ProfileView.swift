@@ -3,6 +3,7 @@ import SwiftUI
 
 struct ProfileView: View {
     @Environment(\.currentUserProfile) private var profile
+    @Environment(AuthService.self) private var auth
     @Environment(\.modelContext) private var modelContext
     @Query private var profiles: [UserProfile]
 
@@ -147,6 +148,7 @@ struct ProfileView: View {
 
     private func resetProfile() {
         profiles.forEach { modelContext.delete($0) }
+        Task { try? await auth.signOut() }
     }
 }
 

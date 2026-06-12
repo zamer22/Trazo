@@ -3,46 +3,48 @@ import SwiftUI
 struct AuthView: View {
     @Environment(AuthService.self) private var auth
 
-    private enum Modo: String, CaseIterable, Identifiable {
-        case ingresar = "Ingresar"
-        case registrarse = "Registrarse"
-        var id: String { rawValue }
-    }
-
-    @State private var modo: Modo = .ingresar
+    @State private var modoRegistro = false
     @State private var nombreUsuario = ""
     @State private var correo = ""
     @State private var contrasena = ""
-    @State private var error: String?
+    @State private var errorMensaje: String?
 
     var body: some View {
         ZStack {
             TrazoColors.background.ignoresSafeArea()
 
             VStack(spacing: 0) {
+                Spacer()
+
                 hero
-                    .padding(.top, TrazoSpacing.xxxl)
 
-                Spacer(minLength: TrazoSpacing.xl)
+                Spacer(minLength: TrazoSpacing.xxxl)
 
-                ScrollView {
-                    VStack(alignment: .leading, spacing: TrazoSpacing.xl) {
-                        modoPicker
-                        formulario
-                        if let error {
-                            Text(error)
-                                .font(TrazoTypography.caption())
-                                .foregroundStyle(TrazoColors.accentOrange)
-                        }
-                        TrazoButton(
-                            title: modo == .ingresar ? "Ingresar" : "Crear cuenta",
-                            isEnabled: puedeEnviar && !auth.isLoading,
-                            action: enviar
-                        )
-                        cambiarModo
+                VStack(alignment: .leading, spacing: TrazoSpacing.xl) {
+                    encabezado
+
+                    formulario
+
+                    if let errorMensaje {
+                        Text(errorMensaje)
+                            .font(TrazoTypography.caption())
+                            .foregroundStyle(TrazoColors.accentOrange)
+                            .transition(.opacity)
                     }
-                    .padding(TrazoSpacing.xl)
+
+                    TrazoButton(
+                        title: modoRegistro ? "Crear cuenta" : "Ingresar",
+                        isEnabled: puedeEnviar && !auth.isLoading,
+                        action: enviar
+                    )
                 }
+                .padding(.horizontal, TrazoSpacing.xl)
+                .animation(.easeInOut(duration: 0.25), value: modoRegistro)
+
+                Spacer()
+
+                cambiarModo
+                    .padding(.bottom, TrazoSpacing.xxxl)
             }
         }
     }
@@ -57,26 +59,30 @@ struct AuthView: View {
                 .font(TrazoTypography.largeTitle())
                 .foregroundStyle(TrazoColors.textPrimary)
 
-            Text("Tus rutas, tu ritmo, tu comunidad.")
+            Text("Tus Trazos, tu ritmo, tu comunidad.")
                 .font(TrazoTypography.body())
                 .foregroundStyle(TrazoColors.textSecondary)
         }
     }
 
-    private var modoPicker: some View {
-        Picker("", selection: $modo) {
-            ForEach(Modo.allCases) { opcion in
-                Text(opcion.rawValue).tag(opcion)
-            }
+    private var encabezado: some View {
+        VStack(alignment: .leading, spacing: TrazoSpacing.sm) {
+            Text(modoRegistro ? "Crea tu cuenta" : "Bienvenido de vuelta")
+                .font(TrazoTypography.title())
+                .foregroundStyle(TrazoColors.textPrimary)
         }
-        .pickerStyle(.segmented)
-        .onChange(of: modo) { _, _ in error = nil }
     }
 
     private var formulario: some View {
         VStack(spacing: TrazoSpacing.md) {
-            if modo == .registrarse {
-                campo(titulo: "Nombre", placeholder: "Ej. Diego", texto: $nombreUsuario)
+            if modoRegistro {
+                campo(
+                    titulo: "Nombre",
+                    placeholder: "Ej. Diego",
+                    texto: $nombreUsuario,
+                    content: .name
+                )
+                .transition(.move(edge: .top).combined(with: .opacity))
             }
             campo(
                 titulo: "Correo",
@@ -90,7 +96,7 @@ struct AuthView: View {
                 placeholder: "Mínimo 6 caracteres",
                 texto: $contrasena,
                 seguro: true,
-                content: modo == .ingresar ? .password : .newPassword
+                content: modoRegistro ? .newPassword : .password
             )
         }
     }
@@ -127,47 +133,50 @@ struct AuthView: View {
     }
 
     private var cambiarModo: some View {
-        HStack {
-            Spacer()
-            Button {
-                modo = modo == .ingresar ? .registrarse : .ingresar
-                error = nil
-            } label: {
-                Text(modo == .ingresar
-                     ? "¿Aún no tienes cuenta? Regístrate"
-                     : "¿Ya tienes cuenta? Ingresa")
-                    .font(TrazoTypography.caption())
-                    .foregroundStyle(TrazoColors.routeTeal)
+        Button {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                modoRegistro.toggle()
+                errorMensaje = nil
+                nombreUsuario = ""
             }
-            Spacer()
+        } label: {
+            Group {
+                if modoRegistro {
+                    Text("¿Ya tienes cuenta? ") + Text("Inicia sesión").bold()
+                } else {
+                    Text("¿Aún no tienes cuenta? ") + Text("Regístrate").bold()
+                }
+            }
+            .font(TrazoTypography.caption())
+            .foregroundStyle(TrazoColors.textSecondary)
         }
     }
 
     private var puedeEnviar: Bool {
         let correoOk = correo.contains("@") && correo.contains(".")
         let contrasenaOk = contrasena.count >= 6
-        let nombreOk = modo == .ingresar || !nombreUsuario.trimmingCharacters(in: .whitespaces).isEmpty
+        let nombreOk = !modoRegistro || !nombreUsuario.trimmingCharacters(in: .whitespaces).isEmpty
         return correoOk && contrasenaOk && nombreOk
     }
 
     private func enviar() {
-        error = nil
+        errorMensaje = nil
         Task {
             do {
-                if modo == .ingresar {
-                    try await auth.signIn(
-                        correo: correo.trimmingCharacters(in: .whitespacesAndNewlines),
-                        contrasena: contrasena
-                    )
-                } else {
+                if modoRegistro {
                     try await auth.signUp(
                         correo: correo.trimmingCharacters(in: .whitespacesAndNewlines),
                         contrasena: contrasena,
                         nombreUsuario: nombreUsuario.trimmingCharacters(in: .whitespacesAndNewlines)
                     )
+                } else {
+                    try await auth.signIn(
+                        correo: correo.trimmingCharacters(in: .whitespacesAndNewlines),
+                        contrasena: contrasena
+                    )
                 }
             } catch {
-                self.error = error.localizedDescription
+                errorMensaje = error.localizedDescription
             }
         }
     }
