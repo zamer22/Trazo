@@ -1,3 +1,28 @@
+# ──────────────────────────────────────────────
+# Datos pesados — no versionar (demasiado grandes para git)
+# ──────────────────────────────────────────────
+
+# Datasets de elevación (GeoTIFF / HGT originales, ~1.4 GB c/u)
+*.tif
+*.tiff
+*.hgt
+
+# Salidas generadas
+*.csv
+
+# ──────────────────────────────────────────────
+# Secretos / entorno
+# ──────────────────────────────────────────────
+.env
+.env.*
+*.local
+
+# ──────────────────────────────────────────────
+# Sistema operativo
+# ──────────────────────────────────────────────
+Thumbs.db
+ehthumbs.db
+desktop.ini
 # Xcode user-specific files
 xcuserdata/
 *.xcuserstate
@@ -5,3 +30,14 @@ xcuserdata/
 
 # macOS
 .DS_Store
+
+# ──────────────────────────────────────────────
+# Claude Code / agentes — no versionar
+# ──────────────────────────────────────────────
+.claude/
+.agents/
+.mcp.json
+skills-lock.json
+CLAUDE.md
+CLAUDE.MD
+CLAUDE.local.md
