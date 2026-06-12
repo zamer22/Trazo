@@ -56,7 +56,8 @@ struct TrazoBottomSearchBar: View {
         }
         .padding(.horizontal, TrazoSpacing.lg)
         .padding(.vertical, TrazoSpacing.md)
-        .background(TrazoColors.elevated.opacity(0.5))
+        .background(.ultraThinMaterial)
+        .background(TrazoColors.elevated.opacity(0.3))
         .clipShape(Capsule())
         .padding(.horizontal, TrazoSpacing.lg)
         .padding(.top, TrazoSpacing.sm + 5 + TrazoSpacing.sm)
@@ -85,7 +86,8 @@ struct TrazoBottomSearchButton: View {
             }
             .padding(.horizontal, TrazoSpacing.lg)
             .padding(.vertical, TrazoSpacing.md)
-            .background(TrazoColors.elevated.opacity(0.5))
+            .background(.ultraThinMaterial)
+            .background(TrazoColors.elevated.opacity(0.3))
             .clipShape(Capsule())
             .padding(.horizontal, TrazoSpacing.lg)
         }

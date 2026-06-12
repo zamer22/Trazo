@@ -20,7 +20,7 @@ struct ProfileView: View {
                 VStack(spacing: TrazoSpacing.lg) {
                     if let profile {
                         header(for: profile)
-                        statsSection(for: profile)
+                        healthSection(for: profile)
                         preferencesSection(for: profile)
                     } else {
                         FeaturePlaceholderView(
@@ -82,13 +82,42 @@ struct ProfileView: View {
     }
 
     @ViewBuilder
+    private func healthSection(for profile: UserProfile) -> some View {
+        VStack(alignment: .leading, spacing: TrazoSpacing.md) {
+            HStack(spacing: TrazoSpacing.xs) {
+                Image(systemName: "heart.fill").font(.caption).foregroundStyle(.red)
+                Text("Datos de salud")
+                    .font(TrazoTypography.headline())
+                    .foregroundStyle(TrazoColors.textPrimary)
+            }
+            statsSection(for: profile)
+        }
+    }
+
+    @ViewBuilder
     private func statsSection(for profile: UserProfile) -> some View {
-        LazyVGrid(
-            columns: [GridItem(.flexible()), GridItem(.flexible())],
-            spacing: TrazoSpacing.md
-        ) {
-            TrazoStatCard(label: "Peso", value: "\(Int(profile.weightKg)) kg")
-            TrazoStatCard(label: "Ritmo", value: profile.formattedPace)
+        VStack(alignment: .leading, spacing: TrazoSpacing.md) {
+            LazyVGrid(
+                columns: [GridItem(.flexible()), GridItem(.flexible())],
+                spacing: TrazoSpacing.md
+            ) {
+                TrazoStatCard(label: "Peso", value: "\(Int(profile.weightKg)) kg")
+                TrazoStatCard(label: "Ritmo", value: profile.formattedPace)
+                if let h = profile.heightCm { TrazoStatCard(label: "Altura", value: "\(Int(h)) cm") }
+                if let a = profile.age      { TrazoStatCard(label: "Edad",   value: "\(a) años")    }
+                if let r = profile.weeklyRuns { TrazoStatCard(label: "Corridas/semana", value: "\(r)") }
+                if let vo2 = profile.vo2Max { TrazoStatCard(label: "VO₂ máx", value: String(format: "%.0f", vo2)) }
+                if let hr = profile.restingHR { TrazoStatCard(label: "FC reposo", value: "\(hr) lpm") }
+            }
+            if profile.healthLinked {
+                HStack(spacing: TrazoSpacing.xs) {
+                    Image(systemName: "heart.fill").font(.caption2).foregroundStyle(.red)
+                    Text("Datos sincronizados de Apple Health. Edítalos en la app Salud.")
+                        .font(TrazoTypography.caption())
+                        .foregroundStyle(TrazoColors.textSecondary)
+                }
+                .padding(.horizontal, TrazoSpacing.sm)
+            }
         }
     }
 
@@ -117,6 +146,8 @@ struct ProfileView: View {
             TrazoButton(title: "Cerrar sesión", style: .secondary) {
                 resetProfile()
             }
+            .accessibilityLabel("Cerrar sesión")
+            .accessibilityHint("Sale de tu cuenta y borra el perfil del dispositivo")
         }
     }
 
@@ -155,6 +186,8 @@ struct ProfileView: View {
 struct ProfileSettingsView: View {
     @Bindable var profile: UserProfile
     @AppStorage("appColorScheme") private var appColorScheme = AppColorScheme.light.rawValue
+    @AppStorage("voiceNavigationEnabled") private var voiceNavigationEnabled = true
+    @AppStorage("accessibilityVoiceEnabled") private var accessibilityVoiceEnabled = true
     @Environment(\.dismiss) private var dismiss
 
     private var currentScheme: AppColorScheme {
@@ -186,18 +219,30 @@ struct ProfileSettingsView: View {
 
                 Section("Físico") {
                     Stepper("Peso: \(Int(profile.weightKg)) kg", value: $profile.weightKg, in: 40...120)
-                    Slider(
-                        value: $profile.averagePaceMinPerKm,
-                        in: 4...10,
-                        step: 0.25
-                    ) {
-                        Text("Ritmo: \(profile.formattedPace)")
+                    LabeledContent("Ritmo: \(profile.formattedPace)") {
+                        Slider(value: $profile.averagePaceMinPerKm, in: 4...10, step: 0.25)
+                            .frame(width: 140)
                     }
                 }
 
                 Section("Trazo") {
                     Toggle("Trazos planos", isOn: $profile.preferFlatRoutes)
                     Toggle("Evitar autopistas", isOn: $profile.avoidHighways)
+                }
+
+                Section {
+                    Toggle(isOn: $voiceNavigationEnabled) {
+                        Label("Guía por voz", systemImage: "waveform.circle.fill")
+                    }
+                    .accessibilityHint("Activa las indicaciones de voz durante la corrida: giros, banquetas y pines cercanos")
+                    Toggle(isOn: $accessibilityVoiceEnabled) {
+                        Label("Anuncios extra", systemImage: "speaker.wave.3.fill")
+                    }
+                    .accessibilityHint("Anuncia botones y avisos importantes para usuarios con VoiceOver activado")
+                } header: {
+                    Text("Accesibilidad")
+                } footer: {
+                    Text("La guía por voz describe giros, calles y banquetas durante tu Trazo. Los anuncios extra refuerzan botones y alertas.")
                 }
             }
             .navigationTitle("Ajustes")

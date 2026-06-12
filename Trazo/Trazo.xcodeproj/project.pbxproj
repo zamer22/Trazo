@@ -13,9 +13,11 @@
 		3AA6C33F2FDC0C2100ADC745 /* Realtime in Frameworks */ = {isa = PBXBuildFile; productRef = 3AA6C33E2FDC0C2100ADC745 /* Realtime */; };
 		3AA6C3412FDC0C2100ADC745 /* Storage in Frameworks */ = {isa = PBXBuildFile; productRef = 3AA6C3402FDC0C2100ADC745 /* Storage */; };
 		3AA6C3432FDC0C2100ADC745 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 3AA6C3422FDC0C2100ADC745 /* Supabase */; };
+		3AA6C45D2FDC277000ADC745 /* FoundationModels.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3AA6C45C2FDC277000ADC745 /* FoundationModels.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		3AA6C45C2FDC277000ADC745 /* FoundationModels.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = FoundationModels.framework; path = System/Library/Frameworks/FoundationModels.framework; sourceTree = SDKROOT; };
 		BA157F742FDBDEDB00AD865E /* Trazo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Trazo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -33,6 +35,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				3AA6C33D2FDC0C2100ADC745 /* PostgREST in Frameworks */,
+				3AA6C45D2FDC277000ADC745 /* FoundationModels.framework in Frameworks */,
 				3AA6C33B2FDC0C2100ADC745 /* Functions in Frameworks */,
 				3AA6C3432FDC0C2100ADC745 /* Supabase in Frameworks */,
 				3AA6C3392FDC0C2100ADC745 /* Auth in Frameworks */,
@@ -44,10 +47,19 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		3AA6C45B2FDC276E00ADC745 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				3AA6C45C2FDC277000ADC745 /* FoundationModels.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		BA157F6B2FDBDEDB00AD865E = {
 			isa = PBXGroup;
 			children = (
 				BA157F762FDBDEDB00AD865E /* Trazo */,
+				3AA6C45B2FDC276E00ADC745 /* Frameworks */,
 				BA157F752FDBDEDB00AD865E /* Products */,
 			);
 			sourceTree = "<group>";

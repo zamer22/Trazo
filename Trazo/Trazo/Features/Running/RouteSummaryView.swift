@@ -7,10 +7,12 @@ struct RouteSummaryView: View {
     let plan: RoutePlan
 
     @State private var statsPanelHeight: CGFloat = 320
+    @State private var isRunningActive = false
+    @State private var mostrarAlertaOtraRuta = false
 
     var body: some View {
         GeometryReader { geometry in
-            let topPadding = geometry.safeAreaInsets.top + 56
+            let topPadding = geometry.safeAreaInsets.top + 80
             let bottomPadding = statsPanelHeight
 
             ZStack(alignment: .bottom) {
@@ -32,7 +34,6 @@ struct RouteSummaryView: View {
                 .ignoresSafeArea()
 
                 statsPanel
-                    .offset(y: 34)
                     .background {
                         GeometryReader { panelGeo in
                             Color.clear
@@ -65,10 +66,18 @@ struct RouteSummaryView: View {
 
     private var statsPanel: some View {
         VStack(spacing: TrazoSpacing.md) {
-            Capsule()
-                .fill(TrazoColors.textSecondary.opacity(0.35))
-                .frame(width: 40, height: 5)
-                .padding(.top, TrazoSpacing.sm)
+            Color.clear.frame(height: TrazoSpacing.md)
+            if let razon = plan.aiRazon {
+                HStack(alignment: .top, spacing: TrazoSpacing.sm) {
+                    Image(systemName: "sparkles").font(.caption.weight(.semibold)).foregroundStyle(TrazoColors.accentOrange)
+                    Text(razon).font(TrazoTypography.caption()).foregroundStyle(TrazoColors.textSecondary).fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(TrazoSpacing.md)
+                .background(TrazoColors.accentOrange.opacity(0.1))
+                .clipShape(RoundedRectangle(cornerRadius: TrazoRadius.sm, style: .continuous))
+                .padding(.horizontal, TrazoSpacing.lg)
+            }
 
             LazyVGrid(
                 columns: [GridItem(.flexible()), GridItem(.flexible())],
@@ -77,30 +86,50 @@ struct RouteSummaryView: View {
                 TrazoMapStatCard(label: "Distancia", value: formattedDistance)
                 TrazoMapStatCard(label: "Tiempo est.", value: "\(plan.estimatedMinutes) min")
                 TrazoMapStatCard(label: "Ritmo prom.", value: plan.averagePace)
-                TrazoMapStatCard(label: "Cadencia", value: "90 BPM")
+                TrazoMapStatCard(label: "Desnivel ↑", value: "\(plan.gananciaElevacionM) m")
                 TrazoMapStatCard(label: "Calorías est.", value: "~\(plan.estimatedCalories) Cal")
-
-                TrazoButton(title: "Empezar a correr") {}
+                TrazoMapStatCard(label: "Terreno", value: plan.desnivel)
             }
             .padding(.horizontal, TrazoSpacing.lg)
+
+            TrazoButton(title: "Empezar a correr") {
+                if ActiveRunManager.shared.hayCorridaActiva {
+                    mostrarAlertaOtraRuta = true
+                } else {
+                    isRunningActive = true
+                }
+            }
+            .accessibilityLabel("Empezar a correr esta ruta")
+            .accessibilityHint("Inicia la navegación guiada por voz hacia \(plan.destinationName)")
+            .padding(.horizontal, TrazoSpacing.lg)
             .padding(.bottom, TrazoSpacing.lg)
+            .fullScreenCover(isPresented: $isRunningActive, onDismiss: { dismiss() }) {
+                RunningActiveView(plan: plan)
+                    .onAppear { ActiveRunManager.shared.hayCorridaActiva = true }
+                    .onDisappear { ActiveRunManager.shared.hayCorridaActiva = false }
+            }
+            .alert("Ya hay una corrida activa", isPresented: $mostrarAlertaOtraRuta) {
+                Button("Entendido", role: .cancel) {}
+            } message: {
+                Text("Finaliza tu corrida actual antes de iniciar otra.")
+            }
         }
         .frame(maxWidth: .infinity)
         .background {
             ZStack {
-                Rectangle()
-                    .fill(.ultraThinMaterial)
-                Rectangle()
-                    .fill(TrazoColors.surface.opacity(0.55))
+                UnevenRoundedRectangle(
+                    topLeadingRadius: TrazoRadius.lg,
+                    topTrailingRadius: TrazoRadius.lg
+                )
+                .fill(.ultraThinMaterial)
+                UnevenRoundedRectangle(
+                    topLeadingRadius: TrazoRadius.lg,
+                    topTrailingRadius: TrazoRadius.lg
+                )
+                .fill(TrazoColors.surface.opacity(0.55))
             }
+            .ignoresSafeArea(edges: .bottom)
         }
-        .clipShape(
-            UnevenRoundedRectangle(
-                topLeadingRadius: TrazoRadius.lg,
-                topTrailingRadius: TrazoRadius.lg
-            )
-        )
-        .ignoresSafeArea(edges: .bottom)
     }
 
     private var formattedDistance: String {
