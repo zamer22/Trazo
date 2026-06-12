@@ -66,7 +66,7 @@ struct RunningMapExplorerView: View {
             .presentationCornerRadius(TrazoRadius.lg)
             .presentationBackground(TrazoColors.background)
         }
-        .alert("No se pudo crear la ruta", isPresented: .init(
+        .alert("No se pudo crear el Trazo", isPresented: .init(
             get: { errorMessage != nil },
             set: { if !$0 { errorMessage = nil } }
         )) {

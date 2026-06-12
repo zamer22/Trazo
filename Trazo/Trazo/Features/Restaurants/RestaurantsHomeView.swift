@@ -1,68 +1,100 @@
+import MapKit
 import SwiftUI
 
 struct RestaurantsHomeView: View {
     @State private var searchText = ""
     @State private var viewMode: ViewMode = .map
+    @State private var cameraPosition: MapCameraPosition = .automatic
 
     enum ViewMode: String, CaseIterable {
         case map = "Mapa"
         case list = "Lista"
     }
 
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: TrazoSpacing.lg) {
-                TrazoSearchBar(text: $searchText, placeholder: "Buscar restaurantes")
-
-                Picker("Vista", selection: $viewMode) {
-                    ForEach(ViewMode.allCases, id: \.self) { mode in
-                        Text(mode.rawValue).tag(mode)
-                    }
-                }
-                .pickerStyle(.segmented)
-
-                Group {
-                    switch viewMode {
-                    case .map:
-                        mapPlaceholder
-                    case .list:
-                        restaurantList
-                    }
-                }
-            }
-            .padding(TrazoSpacing.lg)
-            .background(TrazoColors.background)
-            .navigationTitle("Locales")
+    private var filteredRestaurants: [MockRestaurant] {
+        guard !searchText.isEmpty else { return MockRestaurant.samples }
+        return MockRestaurant.samples.filter {
+            $0.name.localizedCaseInsensitiveContains(searchText)
         }
     }
 
-    private var mapPlaceholder: some View {
-        RoundedRectangle(cornerRadius: TrazoRadius.lg, style: .continuous)
-            .fill(TrazoColors.surface)
-            .overlay {
-                VStack(spacing: TrazoSpacing.md) {
-                    Image(systemName: "mappin.and.ellipse")
-                        .font(.system(size: 40))
-                        .foregroundStyle(TrazoColors.accentOrange)
-                    Text("Mapa de restaurantes")
-                        .font(TrazoTypography.headline())
-                        .foregroundStyle(TrazoColors.textPrimary)
-                    Text("Próximamente con locales cerca de tus rutas")
-                        .font(TrazoTypography.caption())
-                        .foregroundStyle(TrazoColors.textSecondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal)
+    var body: some View {
+        NavigationStack {
+            ZStack(alignment: .bottom) {
+                VStack(spacing: 0) {
+                    header
+
+                    Group {
+                        switch viewMode {
+                        case .map:
+                            restaurantMap
+                        case .list:
+                            restaurantList
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+
+                TrazoBottomSearchBar(text: $searchText, placeholder: "Buscar restaurantes")
+            }
+            .background(TrazoColors.background)
+            .navigationBarHidden(true)
+            .toolbarBackground(.hidden, for: .tabBar)
+        }
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: TrazoSpacing.md) {
+            Text("Locales")
+                .font(TrazoTypography.largeTitle())
+                .foregroundStyle(TrazoColors.textPrimary)
+
+            Picker("Vista", selection: $viewMode) {
+                ForEach(ViewMode.allCases, id: \.self) { mode in
+                    Text(mode.rawValue).tag(mode)
                 }
             }
+            .pickerStyle(.segmented)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, TrazoSpacing.lg)
+        .padding(.top, TrazoSpacing.sm)
+        .padding(.bottom, TrazoSpacing.md)
+    }
+
+    private var restaurantMap: some View {
+        Map(position: $cameraPosition, interactionModes: .all) {
+            UserAnnotation()
+        }
+        .mapStyle(.standard(pointsOfInterest: .including([.restaurant, .cafe, .bakery])))
+        .clipShape(RoundedRectangle(cornerRadius: TrazoRadius.lg, style: .continuous))
+        .overlay {
+            VStack(spacing: TrazoSpacing.sm) {
+                Image(systemName: "mappin.and.ellipse")
+                    .font(.system(size: 32))
+                    .foregroundStyle(TrazoColors.accentOrange)
+                Text("Próximamente con locales cerca de tus Trazos")
+                    .font(TrazoTypography.caption())
+                    .foregroundStyle(TrazoColors.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, TrazoSpacing.xl)
+            }
+            .padding(TrazoSpacing.lg)
+            .background(TrazoColors.surface.opacity(0.88))
+            .clipShape(RoundedRectangle(cornerRadius: TrazoRadius.md, style: .continuous))
+            .padding(.horizontal, TrazoSpacing.xl)
+        }
     }
 
     private var restaurantList: some View {
         ScrollView {
             LazyVStack(spacing: TrazoSpacing.md) {
-                ForEach(MockRestaurant.samples) { restaurant in
+                ForEach(filteredRestaurants) { restaurant in
                     restaurantRow(restaurant)
                 }
             }
+            .padding(.horizontal, TrazoSpacing.lg)
+            .padding(.bottom, TrazoBottomChromeMetrics.searchZoneHeight + TrazoSpacing.md)
         }
     }
 
