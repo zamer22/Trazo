@@ -199,10 +199,18 @@ final class ClubService {
     // MARK: - Gestión de clubs
 
     func eliminarClub(clubId: UUID) async throws {
-        try await SupabaseService.client
-            .from("clubs").delete()
-            .eq("id", value: clubId.uuidString)
-            .execute()
+        struct Params: Encodable { let p_club_id: UUID }
+        do {
+            try await SupabaseService.client
+                .rpc("eliminar_club", params: Params(p_club_id: clubId))
+                .execute()
+        } catch {
+            // Fallback al DELETE directo si el RPC no está desplegado
+            try await SupabaseService.client
+                .from("clubs").delete()
+                .eq("id", value: clubId.uuidString)
+                .execute()
+        }
         misClubs.removeAll { $0.id == clubId }
     }
 

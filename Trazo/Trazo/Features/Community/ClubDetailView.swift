@@ -26,6 +26,7 @@ struct ClubDetailView: View {
     @State private var mostrarConfirmacion = false
     @State private var accionConfirmacion: AccionConfirmacion = .salir
     @State private var pollingExistenciaTask: Task<Void, Never>?
+    @State private var errorMensaje: String?
 
     enum Tab { case chat, sesion }
     enum AccionConfirmacion { case salir, eliminar }
@@ -73,21 +74,39 @@ struct ClubDetailView: View {
             if accionConfirmacion == .eliminar {
                 Button("Eliminar grupo", role: .destructive) {
                     Task {
-                        try? await clubService.eliminarClub(clubId: club.id)
-                        dismiss()
+                        do {
+                            try await clubService.eliminarClub(clubId: club.id)
+                            dismiss()
+                        } catch {
+                            errorMensaje = "No se pudo eliminar: \(error.localizedDescription)"
+                        }
                     }
                 }
             } else {
                 Button("Salir del grupo", role: .destructive) {
                     Task {
-                        if let uid = profile?.id {
-                            try? await clubService.salirDeClub(clubId: club.id, userId: uid)
+                        guard let uid = profile?.id else {
+                            errorMensaje = "Sesión inválida"
+                            return
                         }
-                        dismiss()
+                        do {
+                            try await clubService.salirDeClub(clubId: club.id, userId: uid)
+                            dismiss()
+                        } catch {
+                            errorMensaje = "No se pudo salir: \(error.localizedDescription)"
+                        }
                     }
                 }
             }
             Button("Cancelar", role: .cancel) {}
+        }
+        .alert("Error", isPresented: Binding(
+            get: { errorMensaje != nil },
+            set: { if !$0 { errorMensaje = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(errorMensaje ?? "")
         }
         .task {
             await clubService.cargarMensajes(clubId: club.id)

@@ -95,10 +95,6 @@ struct RunningActiveView: View {
                 voiceNav.actualizarPosicion(indiceActual: sessionTracker.indiceMasCercano)
             }
             verificarPinesCercanos(loc)
-            if sessionTracker.haTerminado && statsFinales == nil {
-                if voiceNavigationEnabled { voiceNav.anunciarCompletada() }
-                finalizarConStats(completado: true)
-            }
         }
         .onChange(of: sessionTracker.estaFueraDeRuta) { _, fueraDeRuta in
             if fueraDeRuta && voiceNavigationEnabled { voiceNav.anunciarFueraDeRuta() }
@@ -199,7 +195,7 @@ struct RunningActiveView: View {
                 if clubSesionId != nil {
                     Button("Finalizar solo para mí", role: .destructive) {
                         sessionTracker.pausar()
-                        finalizarConStats(completado: false)
+                        finalizarConStats()
                     }
                     Button("Finalizar para todos", role: .destructive) {
                         sessionTracker.pausar()
@@ -208,7 +204,7 @@ struct RunningActiveView: View {
                 } else {
                     Button("Finalizar", role: .destructive) {
                         sessionTracker.pausar()
-                        finalizarConStats(completado: false)
+                        finalizarConStats()
                     }
                 }
                 Button("Cancelar", role: .cancel) {}
@@ -391,13 +387,16 @@ struct RunningActiveView: View {
         await cargarPines()
     }
 
-    private func finalizarConStats(completado: Bool) {
+    private func finalizarConStats(completado: Bool? = nil) {
+        let pct = sessionTracker.porcentajeCompletado
+        let realCompletado = completado ?? (pct >= 0.95)
+        if realCompletado && voiceNavigationEnabled { voiceNav.anunciarCompletada() }
         statsFinales = RunStats(
             distanciaRecorridaKm: sessionTracker.distanciaRecorridaKm,
             elapsedSeconds: sessionTracker.elapsedSeconds,
             ritmoStr: sessionTracker.ritmoActualStr,
             calorias: sessionTracker.caloriasQuemadas,
-            completado: completado,
+            completado: realCompletado,
             planDistanciaKm: plan.distanceKm,
             planGananciaElevacionM: plan.gananciaElevacionM
         )
@@ -433,7 +432,7 @@ struct RunningActiveView: View {
                     if statsFinales == nil {
                         finalizadoPorOtro = true
                         sessionTracker.pausar()
-                        finalizarConStats(completado: false)
+                        finalizarConStats()
                     }
                     break
                 }
@@ -443,13 +442,21 @@ struct RunningActiveView: View {
 
     private func finalizarParaTodos() async {
         guard let sesionId = clubSesionId else { return }
-        struct Update: Encodable { let estado: String }
-        try? await SupabaseService.client
-            .from("sesiones_club")
-            .update(Update(estado: "finalizada"))
-            .eq("id", value: sesionId.uuidString)
-            .execute()
-        finalizarConStats(completado: false)
+        struct Params: Encodable { let p_sesion_id: UUID }
+        do {
+            try await SupabaseService.client
+                .rpc("finalizar_corrida_club", params: Params(p_sesion_id: sesionId))
+                .execute()
+        } catch {
+            // Fallback: intentar el update directo (por si el RPC no está desplegado)
+            struct Update: Encodable { let estado: String }
+            try? await SupabaseService.client
+                .from("sesiones_club")
+                .update(Update(estado: "finalizada"))
+                .eq("id", value: sesionId.uuidString)
+                .execute()
+        }
+        finalizarConStats()
     }
 
     private func eliminarPinInmediato(_ pin: PinAdvertencia) {

@@ -58,6 +58,7 @@ final class RunningSessionTracker {
     private var ventanaPace: [(fecha: Date, ubicacion: CLLocation)] = []
     private var ritmoActualSegundos: Int = 0
     private var distanciaAcumuladaConPesos: Double = 0
+    private var ultimaUbicacionGPS: CLLocation?
 
     // MARK: - Init
 
@@ -88,20 +89,20 @@ final class RunningSessionTracker {
 
     func actualizarUbicacion(_ coordenada: CLLocationCoordinate2D) {
         let nuevoIndice = encontrarIndiceMasCercano(a: coordenada)
-        // Calcular distancia real al punto más cercano de la ruta
         let locUsuario = CLLocation(latitude: coordenada.latitude, longitude: coordenada.longitude)
         let puntoCercano = plan.coordinates[nuevoIndice]
         distanciaARutaM = locUsuario.distance(from: CLLocation(latitude: puntoCercano.latitude, longitude: puntoCercano.longitude))
 
-        if nuevoIndice > indiceMasCercano {
-            for i in indiceMasCercano..<nuevoIndice {
-                let desde = plan.coordinates[i]
-                let hasta = plan.coordinates[i + 1]
-                distanciaAcumuladaConPesos += distanciaEntreCoords(desde, hasta)
+        if nuevoIndice > indiceMasCercano { indiceMasCercano = nuevoIndice }
+
+        if estaActivo, let previa = ultimaUbicacionGPS {
+            let delta = locUsuario.distance(from: previa)
+            if delta >= 1.5 && delta <= 60 {
+                distanciaAcumuladaConPesos += delta
+                distanciaRecorridaKm = distanciaAcumuladaConPesos / 1000
             }
-            indiceMasCercano = nuevoIndice
-            distanciaRecorridaKm = distanciaAcumuladaConPesos / 1000
         }
+        ultimaUbicacionGPS = locUsuario
         actualizarCalorias()
     }
 
