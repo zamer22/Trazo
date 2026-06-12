@@ -30,3 +30,14 @@ xcuserdata/
 
 # macOS
 .DS_Store
+
+# ──────────────────────────────────────────────
+# Claude Code / agentes — no versionar
+# ──────────────────────────────────────────────
+.claude/
+.agents/
+.mcp.json
+skills-lock.json
+CLAUDE.md
+CLAUDE.MD
+CLAUDE.local.md

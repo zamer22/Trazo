@@ -3,6 +3,9 @@ import SwiftUI
 
 struct OnboardingView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(AuthService.self) private var auth
+    @Query private var profiles: [UserProfile]
+
     @State private var step = 0
     @State private var displayName = ""
     @State private var weightKg = 70.0
@@ -11,7 +14,16 @@ struct OnboardingView: View {
     @State private var preferFlatRoutes = true
     @State private var avoidHighways = true
 
+    @State private var importandoHealth = false
+    @State private var healthLinked = false
+    @State private var healthError: String?
+
     private let totalSteps = 3
+
+    private var profile: UserProfile? {
+        guard let uid = auth.userId else { return nil }
+        return profiles.first { $0.id == uid }
+    }
 
     var body: some View {
         NavigationStack {
@@ -33,6 +45,7 @@ struct OnboardingView: View {
             }
             .background(TrazoColors.background)
             .navigationBarHidden(true)
+            .onAppear(perform: cargarDesdePerfil)
         }
     }
 
@@ -87,6 +100,8 @@ struct OnboardingView: View {
                 .font(TrazoTypography.title())
                 .foregroundStyle(TrazoColors.textPrimary)
 
+            healthCard
+
             VStack(alignment: .leading, spacing: TrazoSpacing.sm) {
                 Text("Peso (kg): \(Int(weightKg))")
                     .font(TrazoTypography.caption())
@@ -129,6 +144,45 @@ struct OnboardingView: View {
             Spacer()
         }
         .padding(.horizontal, TrazoSpacing.xl)
+    }
+
+    private var healthCard: some View {
+        TrazoCard {
+            VStack(alignment: .leading, spacing: TrazoSpacing.md) {
+                HStack(spacing: TrazoSpacing.md) {
+                    Image(systemName: "heart.text.square.fill")
+                        .font(.system(size: 28))
+                        .foregroundStyle(TrazoColors.accentOrange)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(healthLinked ? "Vinculado con Salud" : "¿Vincular con Salud?")
+                            .font(TrazoTypography.headline())
+                            .foregroundStyle(TrazoColors.textPrimary)
+                        Text(healthLinked
+                             ? "Tus datos se usan para personalizar rutas con IA."
+                             : "Importa peso, ritmo y VO₂ máx automáticamente.")
+                            .font(TrazoTypography.caption())
+                            .foregroundStyle(TrazoColors.textSecondary)
+                    }
+                    Spacer()
+                }
+
+                if let healthError {
+                    Text(healthError)
+                        .font(TrazoTypography.caption())
+                        .foregroundStyle(TrazoColors.accentOrange)
+                }
+
+                if !healthLinked {
+                    TrazoButton(
+                        title: importandoHealth ? "Importando…" : "Vincular con Salud",
+                        style: .secondary,
+                        isEnabled: !importandoHealth,
+                        action: vincularHealth
+                    )
+                }
+            }
+        }
     }
 
     private var preferencesStep: some View {
@@ -196,21 +250,54 @@ struct OnboardingView: View {
         return String(format: "%d:%02d /km", minutes, seconds)
     }
 
+    private func cargarDesdePerfil() {
+        guard let profile else { return }
+        if displayName.isEmpty { displayName = profile.displayName }
+        weightKg = profile.weightKg
+        fitnessLevel = profile.fitnessLevel
+        averagePace = profile.averagePaceMinPerKm
+        preferFlatRoutes = profile.preferFlatRoutes
+        avoidHighways = profile.avoidHighways
+        healthLinked = profile.healthLinked
+    }
+
+    private func vincularHealth() {
+        healthError = nil
+        importandoHealth = true
+        Task {
+            do {
+                try await HealthKitService.shared.requestPermissions()
+                let snap = await HealthKitService.shared.loadSnapshot()
+                if let v = snap.pesoKg { weightKg = v }
+                if let v = snap.vo2Max { fitnessLevel = UserProfile.nivelDesdeVO2Max(v) }
+                if let v = snap.ritmoPromedioMinPerKm { averagePace = v }
+                profile?.applyHealthSnapshot(snap)
+                healthLinked = true
+            } catch {
+                healthError = "No se pudo acceder a Salud. Puedes seguir capturando manualmente."
+            }
+            importandoHealth = false
+        }
+    }
+
     private func completeOnboarding() {
-        let profile = UserProfile(
-            displayName: displayName.trimmingCharacters(in: .whitespaces),
-            weightKg: weightKg,
-            fitnessLevel: fitnessLevel,
-            averagePaceMinPerKm: averagePace,
-            preferFlatRoutes: preferFlatRoutes,
-            avoidHighways: avoidHighways,
-            hasCompletedOnboarding: true
-        )
-        modelContext.insert(profile)
+        guard let profile else { return }
+        profile.displayName = displayName.trimmingCharacters(in: .whitespaces)
+        profile.weightKg = weightKg
+        profile.fitnessLevel = fitnessLevel
+        profile.averagePaceMinPerKm = averagePace
+        profile.preferFlatRoutes = preferFlatRoutes
+        profile.avoidHighways = avoidHighways
+        profile.hasCompletedOnboarding = true
+
+        Task {
+            try? await UserProfileRepository.upsert(profile)
+        }
     }
 }
 
 #Preview {
     OnboardingView()
+        .environment(AuthService())
         .modelContainer(for: UserProfile.self, inMemory: true)
 }
