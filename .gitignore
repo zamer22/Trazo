@@ -1,29 +1,4 @@
 # ──────────────────────────────────────────────
-# Herramientas de asistencia / agentes — no versionar
-# ──────────────────────────────────────────────
-
-# Claude Code
-.claude/
-CLAUDE.md
-CLAUDE.MD
-CLAUDE.local.md
-.claude.json
-
-# Skills / agentes
-.agents/
-skills-lock.json
-skills.json
-
-# MCP (Model Context Protocol)
-.mcp.json
-.cursor/
-.cursorrules
-.windsurfrules
-.github/copilot-instructions.md
-.aider*
-.continue/
-
-# ──────────────────────────────────────────────
 # Datos pesados — no versionar (demasiado grandes para git)
 # ──────────────────────────────────────────────
 
