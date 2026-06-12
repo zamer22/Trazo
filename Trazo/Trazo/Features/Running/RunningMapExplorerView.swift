@@ -12,6 +12,7 @@ struct RunningMapExplorerView: View {
     @State private var recenterTrigger = 0
     @State private var popularLocations: [PopularLocation] = PopularLocationsService.defaults
     @State private var isSearchSheetPresented = false
+    @State private var isAISheetPresented = false
 
     private let locationButtonGap: CGFloat = TrazoSpacing.md
 
@@ -41,10 +42,12 @@ struct RunningMapExplorerView: View {
             VStack {
                 Spacer()
                 HStack {
+                    aiButton
+                        .padding(.leading, TrazoSpacing.lg)
                     Spacer()
                     recenterButton
+                        .padding(.trailing, TrazoSpacing.lg)
                 }
-                .padding(.trailing, TrazoSpacing.lg)
                 .padding(.bottom, locationButtonBottomInset)
             }
 
@@ -53,6 +56,16 @@ struct RunningMapExplorerView: View {
             }
         }
         .toolbarBackground(.hidden, for: .tabBar)
+        .sheet(isPresented: $isAISheetPresented) {
+            AITrazoSheet(
+                userLocation: locationManager.userLocation,
+                onRouteReady: onRouteReady
+            )
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+            .presentationCornerRadius(TrazoRadius.lg)
+            .presentationBackground(TrazoColors.background)
+        }
         .sheet(isPresented: $isSearchSheetPresented) {
             RunningLocationSearchSheet(
                 searchService: searchService,
@@ -87,6 +100,27 @@ struct RunningMapExplorerView: View {
         .onDisappear {
             locationManager.stopUpdating()
         }
+    }
+
+    private var aiButton: some View {
+        Button {
+            isAISheetPresented = true
+        } label: {
+            HStack(spacing: TrazoSpacing.xs) {
+                Image(systemName: "sparkles")
+                    .font(.caption.weight(.semibold))
+                Text("Trazo IA")
+                    .font(TrazoTypography.caption())
+            }
+            .foregroundStyle(TrazoColors.accentOrange)
+            .padding(.horizontal, TrazoSpacing.md)
+            .padding(.vertical, TrazoSpacing.sm)
+            .background(.ultraThinMaterial)
+            .background(TrazoColors.elevated.opacity(0.9))
+            .clipShape(Capsule())
+            .shadow(color: .black.opacity(0.15), radius: 6, y: 2)
+        }
+        .accessibilityLabel("Generar ruta con inteligencia artificial")
     }
 
     private var recenterButton: some View {

@@ -77,13 +77,15 @@ struct RouteSummaryView: View {
                 TrazoMapStatCard(label: "Distancia", value: formattedDistance)
                 TrazoMapStatCard(label: "Tiempo est.", value: "\(plan.estimatedMinutes) min")
                 TrazoMapStatCard(label: "Ritmo prom.", value: plan.averagePace)
-                TrazoMapStatCard(label: "Cadencia", value: "90 BPM")
+                TrazoMapStatCard(label: "Desnivel ↑", value: "\(plan.gananciaElevacionM) m")
                 TrazoMapStatCard(label: "Calorías est.", value: "~\(plan.estimatedCalories) Cal")
-
-                TrazoButton(title: "Empezar a correr") {}
+                TrazoMapStatCard(label: "Terreno", value: plan.desnivel)
             }
             .padding(.horizontal, TrazoSpacing.lg)
-            .padding(.bottom, TrazoSpacing.lg)
+
+            TrazoButton(title: "Empezar a correr") {}
+                .padding(.horizontal, TrazoSpacing.lg)
+                .padding(.bottom, TrazoSpacing.lg)
         }
         .frame(maxWidth: .infinity)
         .background {

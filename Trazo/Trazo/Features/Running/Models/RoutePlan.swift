@@ -1,6 +1,7 @@
 import CoreLocation
 import Foundation
 import MapKit
+import SwiftData
 
 struct MapDestination: Equatable {
     var name: String
@@ -23,6 +24,15 @@ struct RoutePlan: Hashable, Identifiable {
     let estimatedMinutes: Int
     let estimatedCalories: Int
     let averagePace: String
+    let gananciaElevacionM: Int
+
+    var desnivel: String {
+        switch gananciaElevacionM {
+        case ..<50: "Plana"
+        case 50..<150: "Moderada"
+        default: "Exigente"
+        }
+    }
 
     var destinationCoordinate: CLLocationCoordinate2D {
         CLLocationCoordinate2D(latitude: destinationLatitude, longitude: destinationLongitude)
@@ -40,7 +50,8 @@ struct RoutePlan: Hashable, Identifiable {
         distanceKm: Double,
         estimatedMinutes: Int,
         estimatedCalories: Int,
-        averagePace: String
+        averagePace: String,
+        gananciaElevacionM: Int = 0
     ) {
         self.id = id
         self.destinationName = destinationName
@@ -51,6 +62,7 @@ struct RoutePlan: Hashable, Identifiable {
         self.estimatedMinutes = estimatedMinutes
         self.estimatedCalories = estimatedCalories
         self.averagePace = averagePace
+        self.gananciaElevacionM = gananciaElevacionM
     }
 }
 
@@ -67,28 +79,53 @@ extension RoutePlan {
     static func build(
         from route: MKRoute,
         destination: MapDestination,
-        profile: UserProfile?
+        profile: UserProfile?,
+        gananciaElevacionM: Int = 0
     ) -> RoutePlan {
-        let points = route.polyline.coordinates
-        let distanceKm = route.distance / 1000
-        let pace = profile?.averagePaceMinPerKm ?? 6.5
-        let minutes = max(1, Int((distanceKm * pace).rounded()))
-        let weight = profile?.weightKg ?? 70
-        let calories = max(1, Int((distanceKm * weight * 1.036).rounded()))
-
-        return RoutePlan(
+        build(
+            puntos: route.polyline.coordinates,
+            distanceKm: route.distance / 1000,
             destinationName: destination.name,
             destination: destination.coordinate,
-            routePoints: points,
+            profile: profile,
+            gananciaElevacionM: gananciaElevacionM
+        )
+    }
+
+    static func build(
+        puntos: [CLLocationCoordinate2D],
+        distanceKm: Double,
+        destinationName: String,
+        destination: CLLocationCoordinate2D,
+        profile: UserProfile?,
+        gananciaElevacionM: Int = 0
+    ) -> RoutePlan {
+        let weight = profile?.weightKg ?? 70
+        let basePace = profile?.averagePaceMinPerKm ?? 6.5
+
+        // Penalización de ritmo y calorías por desnivel
+        let gradeRatio = Double(gananciaElevacionM) / max(distanceKm * 1000, 1)
+        let pacePenaltyMinPerKm = gradeRatio * 25.0      // ~+25 seg/km por cada 1% de pendiente media
+        let elevFactor = 1.0 + gradeRatio * 2.0          // ~+8% calorías por 4% de pendiente media
+
+        let adjustedPace = basePace + pacePenaltyMinPerKm
+        let minutes = max(1, Int((distanceKm * adjustedPace).rounded()))
+        let calories = max(1, Int((distanceKm * weight * 1.036 * elevFactor).rounded()))
+
+        return RoutePlan(
+            destinationName: destinationName,
+            destination: destination,
+            routePoints: puntos,
             distanceKm: distanceKm,
             estimatedMinutes: minutes,
             estimatedCalories: calories,
-            averagePace: profile?.formattedPace ?? "6:30 /km"
+            averagePace: profile?.formattedPace ?? "6:30 /km",
+            gananciaElevacionM: gananciaElevacionM
         )
     }
 }
 
-private extension MKPolyline {
+extension MKPolyline {
     var coordinates: [CLLocationCoordinate2D] {
         var coords = [CLLocationCoordinate2D](
             repeating: kCLLocationCoordinate2DInvalid,
