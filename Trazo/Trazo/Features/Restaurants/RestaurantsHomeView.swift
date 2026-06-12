@@ -53,7 +53,17 @@ struct RestaurantsHomeView: View {
             .background(TrazoColors.background)
             .navigationBarHidden(true)
             .sheet(item: $seleccionado) { rest in
-                RestauranteDetalleSheet(restaurante: rest, userId: profile?.id)
+                RestauranteDetalleSheet(
+                    restaurante: rest,
+                    userId: profile?.id,
+                    onVerEnMapa: {
+                        seleccionado = nil
+                        viewMode = .mapa
+                        withAnimation {
+                            cameraPosition = .camera(MapCamera(centerCoordinate: rest.coordinate, distance: 600))
+                        }
+                    }
+                )
             }
             .sheet(isPresented: $mostrarPasaporte) {
                 if let uid = profile?.id {
@@ -118,6 +128,8 @@ struct RestaurantsHomeView: View {
                             ForEach(cercanos.prefix(10)) { r in
                                 Button { seleccionado = r } label: { recomendacionCard(r) }
                                 .buttonStyle(.plain)
+                                .accessibilityLabel(accesibilidadCard(r))
+                                .accessibilityHint("Abre detalles, cupones y calificación")
                             }
                         }
                         .padding(.horizontal, TrazoSpacing.lg)
@@ -361,6 +373,19 @@ struct RestaurantsHomeView: View {
 
     // MARK: - Helpers
 
+    private func accesibilidadCard(_ r: Restaurante) -> String {
+        var partes: [String] = [r.nombre, r.etiquetaTipo]
+        if r.totalCalificaciones > 0 {
+            partes.append("\(String(format: "%.1f", r.ratingPromedio)) estrellas con \(r.totalCalificaciones) calificaciones")
+        } else {
+            partes.append("Sin calificaciones")
+        }
+        if let loc = locationManager.userLocation {
+            partes.append("a \(r.distanciaFormateada(desde: loc))")
+        }
+        return partes.joined(separator: ", ")
+    }
+
     private func cargarTodo() async {
         cargando = true
         defer { cargando = false }
@@ -404,6 +429,7 @@ struct RestauranteDetalleSheet: View {
     @Environment(\.dismiss) private var dismiss
     let restaurante: Restaurante
     let userId: UUID?
+    var onVerEnMapa: (() -> Void)? = nil
     @State private var miRating: Int = 0
     @State private var guardandoRating = false
     @State private var cupones: [CuponRestaurante] = []
@@ -578,20 +604,25 @@ struct RestauranteDetalleSheet: View {
                     .font(TrazoTypography.headline()).foregroundStyle(TrazoColors.textPrimary)
                 Spacer()
             }
-            HStack(spacing: TrazoSpacing.md) {
+            HStack(spacing: 0) {
                 ForEach(1...5, id: \.self) { star in
                     Button {
                         miRating = star
                         Task { await guardarRating(star) }
                     } label: {
                         Image(systemName: star <= miRating ? "star.fill" : "star")
-                            .font(.title2)
+                            .font(.title)
                             .foregroundStyle(star <= miRating ? TrazoColors.accentOrange : TrazoColors.textSecondary)
+                            .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("\(star) estrella\(star > 1 ? "s" : "")")
+                    .accessibilityHint("Califica este local con \(star) de 5 estrellas")
                 }
-                if guardandoRating { ProgressView().scaleEffect(0.8) }
-                Spacer()
+            }
+            .frame(maxWidth: .infinity)
+            if guardandoRating {
+                HStack { ProgressView().scaleEffect(0.8); Spacer() }
             }
         }
         .frame(maxWidth: .infinity)
@@ -602,13 +633,15 @@ struct RestauranteDetalleSheet: View {
 
     private var abrirEnMapasButton: some View {
         Button {
-            let nombreCodificado = restaurante.nombre.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-            let url = URL(string: "maps://?ll=\(restaurante.latitud),\(restaurante.longitud)&q=\(nombreCodificado)")
-            if let url { UIApplication.shared.open(url) }
+            if let onVerEnMapa {
+                onVerEnMapa()
+            } else {
+                dismiss()
+            }
         } label: {
             HStack {
                 Image(systemName: "map.fill")
-                Text("Abrir en Mapas")
+                Text("Ver en el mapa")
             }
             .font(TrazoTypography.body().weight(.semibold))
             .foregroundStyle(TrazoColors.routeTeal)
@@ -617,6 +650,8 @@ struct RestauranteDetalleSheet: View {
             .background(TrazoColors.routeTeal.opacity(0.15))
             .clipShape(RoundedRectangle(cornerRadius: TrazoRadius.sm, style: .continuous))
         }
+        .accessibilityLabel("Ver en el mapa")
+        .accessibilityHint("Cierra este detalle y centra el mapa en \(restaurante.nombre)")
     }
 
     private func cargarDatos() async {

@@ -117,19 +117,19 @@ struct RouteSummaryView: View {
         .frame(maxWidth: .infinity)
         .background {
             ZStack {
-                Rectangle()
-                    .fill(.ultraThinMaterial)
-                Rectangle()
-                    .fill(TrazoColors.surface.opacity(0.55))
+                UnevenRoundedRectangle(
+                    topLeadingRadius: TrazoRadius.lg,
+                    topTrailingRadius: TrazoRadius.lg
+                )
+                .fill(.ultraThinMaterial)
+                UnevenRoundedRectangle(
+                    topLeadingRadius: TrazoRadius.lg,
+                    topTrailingRadius: TrazoRadius.lg
+                )
+                .fill(TrazoColors.surface.opacity(0.55))
             }
+            .ignoresSafeArea(edges: .bottom)
         }
-        .clipShape(
-            UnevenRoundedRectangle(
-                topLeadingRadius: TrazoRadius.lg,
-                topTrailingRadius: TrazoRadius.lg
-            )
-        )
-        .ignoresSafeArea(edges: .bottom)
     }
 
     private var formattedDistance: String {

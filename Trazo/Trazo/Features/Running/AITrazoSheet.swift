@@ -44,12 +44,14 @@ struct AITrazoSheet: View {
             Divider().opacity(0.15)
             ScrollView {
                 VStack(alignment: .leading, spacing: TrazoSpacing.xl) {
-                    modoPickerSection
-                    inputSection
-                    if case .inactivo = estadoRutas { sugerenciasSection }
-                    estadoSection
+                    modoPickerSection.padding(.horizontal, TrazoSpacing.xl)
+                    inputSection.padding(.horizontal, TrazoSpacing.xl)
+                    if case .inactivo = estadoRutas {
+                        sugerenciasSection.padding(.horizontal, TrazoSpacing.xl)
+                    }
+                    estadoSection.padding(.horizontal, TrazoSpacing.md)
                 }
-                .padding(.horizontal, TrazoSpacing.xl)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.top, TrazoSpacing.xl)
                 .padding(.bottom, TrazoSpacing.xxxl)
             }
@@ -138,6 +140,8 @@ struct AITrazoSheet: View {
                             .background(TrazoColors.routeTeal.opacity(0.12))
                             .clipShape(Capsule())
                     }
+                    .accessibilityLabel("Sugerencia: \(s)")
+                    .accessibilityHint("Usa esta idea como punto de partida para tu Trazo")
                 }
             }
         }
@@ -185,8 +189,10 @@ struct AITrazoSheet: View {
             }
             ForEach(Array(planes.enumerated()), id: \.element.id) { idx, plan in
                 routeOptionCard(plan: plan, bearing: activeBearings[safe: idx] ?? Double(idx * 90))
+                    .frame(maxWidth: .infinity)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func routeOptionCard(plan: RoutePlan, bearing: Double) -> some View {
@@ -196,38 +202,43 @@ struct AITrazoSheet: View {
             dismiss()
             onRouteReady(planConRazon)
         } label: {
-            VStack(alignment: .leading, spacing: 0) {
-                // Mini mapa
-                miniMapView(plan: plan)
-                // Stats
-                VStack(alignment: .leading, spacing: TrazoSpacing.sm) {
-                    Text("Hacia el \(nombreRumbo(bearing))")
-                        .font(TrazoTypography.headline())
-                        .foregroundStyle(TrazoColors.textPrimary)
-                    HStack(spacing: TrazoSpacing.lg) {
-                        statPill(icon: "figure.run", value: String(format: "%.1f km", plan.distanceKm))
-                        statPill(icon: "clock", value: "\(plan.estimatedMinutes) min")
-                        if plan.gananciaElevacionM > 0 {
-                            statPill(icon: "arrow.up.right", value: "\(plan.gananciaElevacionM)m")
-                        }
-                    }
-                    Text(plan.desnivel)
-                        .font(TrazoTypography.caption())
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, TrazoSpacing.sm).padding(.vertical, 3)
-                        .background(colorDificultad(plan.desnivel))
-                        .clipShape(Capsule())
-                }
-                .padding(TrazoSpacing.lg)
-            }
-            .background(TrazoColors.surface)
-            .clipShape(RoundedRectangle(cornerRadius: TrazoRadius.md, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: TrazoRadius.md, style: .continuous)
-                    .strokeBorder(TrazoColors.routeTeal.opacity(0.2), lineWidth: 1)
-            )
+            opcionRutaLabel(plan: plan, bearing: bearing)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Ruta hacia el \(nombreRumbo(bearing)), \(String(format: "%.1f", plan.distanceKm)) kilómetros, \(plan.estimatedMinutes) minutos, dificultad \(plan.desnivel)")
+        .accessibilityHint("Selecciona esta ruta para ver el resumen completo")
+    }
+
+    @ViewBuilder
+    private func opcionRutaLabel(plan: RoutePlan, bearing: Double) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            miniMapView(plan: plan)
+            VStack(alignment: .leading, spacing: TrazoSpacing.sm) {
+                Text("Hacia el \(nombreRumbo(bearing))")
+                    .font(TrazoTypography.headline())
+                    .foregroundStyle(TrazoColors.textPrimary)
+                HStack(spacing: TrazoSpacing.lg) {
+                    statPill(icon: "figure.run", value: String(format: "%.1f km", plan.distanceKm))
+                    statPill(icon: "clock", value: "\(plan.estimatedMinutes) min")
+                    if plan.gananciaElevacionM > 0 {
+                        statPill(icon: "arrow.up.right", value: "\(plan.gananciaElevacionM)m")
+                    }
+                }
+                Text(plan.desnivel)
+                    .font(TrazoTypography.caption())
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, TrazoSpacing.sm).padding(.vertical, 3)
+                    .background(colorDificultad(plan.desnivel))
+                    .clipShape(Capsule())
+            }
+            .padding(TrazoSpacing.lg)
+        }
+        .background(TrazoColors.surface)
+        .clipShape(RoundedRectangle(cornerRadius: TrazoRadius.md, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: TrazoRadius.md, style: .continuous)
+                .strokeBorder(TrazoColors.routeTeal.opacity(0.2), lineWidth: 1)
+        )
     }
 
     private func miniMapView(plan: RoutePlan) -> some View {

@@ -146,6 +146,8 @@ struct ProfileView: View {
             TrazoButton(title: "Cerrar sesión", style: .secondary) {
                 resetProfile()
             }
+            .accessibilityLabel("Cerrar sesión")
+            .accessibilityHint("Sale de tu cuenta y borra el perfil del dispositivo")
         }
     }
 
@@ -184,6 +186,8 @@ struct ProfileView: View {
 struct ProfileSettingsView: View {
     @Bindable var profile: UserProfile
     @AppStorage("appColorScheme") private var appColorScheme = AppColorScheme.light.rawValue
+    @AppStorage("voiceNavigationEnabled") private var voiceNavigationEnabled = true
+    @AppStorage("accessibilityVoiceEnabled") private var accessibilityVoiceEnabled = true
     @Environment(\.dismiss) private var dismiss
 
     private var currentScheme: AppColorScheme {
@@ -224,6 +228,21 @@ struct ProfileSettingsView: View {
                 Section("Trazo") {
                     Toggle("Trazos planos", isOn: $profile.preferFlatRoutes)
                     Toggle("Evitar autopistas", isOn: $profile.avoidHighways)
+                }
+
+                Section {
+                    Toggle(isOn: $voiceNavigationEnabled) {
+                        Label("Guía por voz", systemImage: "waveform.circle.fill")
+                    }
+                    .accessibilityHint("Activa las indicaciones de voz durante la corrida: giros, banquetas y pines cercanos")
+                    Toggle(isOn: $accessibilityVoiceEnabled) {
+                        Label("Anuncios extra", systemImage: "speaker.wave.3.fill")
+                    }
+                    .accessibilityHint("Anuncia botones y avisos importantes para usuarios con VoiceOver activado")
+                } header: {
+                    Text("Accesibilidad")
+                } footer: {
+                    Text("La guía por voz describe giros, calles y banquetas durante tu Trazo. Los anuncios extra refuerzan botones y alertas.")
                 }
             }
             .navigationTitle("Ajustes")

@@ -1,28 +1,34 @@
 import CoreLocation
 import MapKit
+import Supabase
 import SwiftUI
 
 struct RunningActiveView: View {
     @Environment(\.currentUserProfile) private var profile
     @Environment(\.dismiss) private var dismiss
+    @AppStorage("voiceNavigationEnabled") private var voiceNavigationEnabled = true
 
     @State private var locationManager = LocationManager()
     @State private var sessionTracker: RunningSessionTracker
     @State private var pines: [PinAdvertencia] = []
     @State private var isReportando = false
-    @State private var mostrarAlertaPin: PinAdvertencia?
+    @State private var pinesEliminados: Set<UUID> = []
     @State private var statsFinales: RunStats?
     @State private var cameraPosition: MapCameraPosition = .automatic
     @State private var barraStatsHeight: CGFloat = 160
     @State private var siguiendoUsuario = true
     @State private var actualizandoCamara = false
     @State private var mostrarConfirmarFinalizar = false
+    @State private var pollingClubTask: Task<Void, Never>?
+    @State private var finalizadoPorOtro = false
 
     let plan: RoutePlan
+    let clubSesionId: UUID?
     private let voiceNav: VoiceNavigationService
 
-    init(plan: RoutePlan) {
+    init(plan: RoutePlan, clubSesionId: UUID? = nil) {
         self.plan = plan
+        self.clubSesionId = clubSesionId
         self._sessionTracker = State(initialValue: RunningSessionTracker(plan: plan))
         self.voiceNav = VoiceNavigationService(coordenadas: plan.coordinates)
     }
@@ -67,45 +73,35 @@ struct RunningActiveView: View {
         .fullScreenCover(item: $statsFinales, onDismiss: { dismiss() }) { stats in
             RunEndSummaryView(stats: stats, onClose: { dismiss() })
         }
-        .alert(isPresented: .init(
-            get: { mostrarAlertaPin != nil },
-            set: { if !$0 { mostrarAlertaPin = nil } }
-        )) {
-            let pin = mostrarAlertaPin!
-            return Alert(
-                title: Text("⚠️ \(pin.etiqueta) adelante"),
-                message: Text("Hay un reporte de \(pin.etiqueta.lowercased()) cerca de tu ruta. Considera cambiar de camino."),
-                primaryButton: .default(Text("Ya no está")) {
-                    Task { try? await PinAdvertenciaService.votarResuelto(pinId: pin.id) }
-                },
-                secondaryButton: .cancel(Text("Entendido"))
-            )
-        }
         .onAppear {
             locationManager.requestPermission()
             locationManager.startUpdating()
             sessionTracker.iniciar()
-            voiceNav.iniciarRuta()
+            if voiceNavigationEnabled { voiceNav.iniciarRuta() }
             Task { await cargarPines() }
+            iniciarPollingClubSesion()
         }
         .onDisappear {
             sessionTracker.pausar()
             locationManager.stopUpdating()
             voiceNav.detener()
+            pollingClubTask?.cancel()
         }
         .onChange(of: locationManager.userLocation?.latitude) { _, _ in
             guard let loc = locationManager.userLocation else { return }
             seguirConCamara(loc)
             sessionTracker.actualizarUbicacion(loc)
-            voiceNav.actualizarPosicion(indiceActual: sessionTracker.indiceMasCercano)
+            if voiceNavigationEnabled {
+                voiceNav.actualizarPosicion(indiceActual: sessionTracker.indiceMasCercano)
+            }
             verificarPinesCercanos(loc)
             if sessionTracker.haTerminado && statsFinales == nil {
-                voiceNav.anunciarCompletada()
+                if voiceNavigationEnabled { voiceNav.anunciarCompletada() }
                 finalizarConStats(completado: true)
             }
         }
         .onChange(of: sessionTracker.estaFueraDeRuta) { _, fueraDeRuta in
-            if fueraDeRuta { voiceNav.anunciarFueraDeRuta() }
+            if fueraDeRuta && voiceNavigationEnabled { voiceNav.anunciarFueraDeRuta() }
         }
         .onChange(of: locationManager.lastFullLocation?.timestamp) { _, _ in
             guard let loc = locationManager.lastFullLocation else { return }
@@ -117,18 +113,18 @@ struct RunningActiveView: View {
 
     private var mapaActivo: some View {
         Map(position: $cameraPosition) {
-            // Tramo restante (muted)
+            // Tramo restante (brillante, alto contraste)
             if sessionTracker.coordenadasRestantes.count > 1 {
                 MapPolyline(coordinates: sessionTracker.coordenadasRestantes)
-                    .stroke(TrazoColors.routeTeal.opacity(0.45), lineWidth: 4)
+                    .stroke(TrazoColors.accentOrange, lineWidth: 7)
             } else {
                 MapPolyline(coordinates: plan.coordinates)
-                    .stroke(TrazoColors.routeTeal.opacity(0.45), lineWidth: 4)
+                    .stroke(TrazoColors.accentOrange, lineWidth: 7)
             }
-            // Tramo cubierto (brillante)
+            // Tramo cubierto (teal sólido)
             if sessionTracker.coordenadasCubiertas.count > 1 {
                 MapPolyline(coordinates: sessionTracker.coordenadasCubiertas)
-                    .stroke(TrazoColors.routeTeal, lineWidth: 5)
+                    .stroke(TrazoColors.routeTeal, lineWidth: 7)
             }
             // Posición del usuario
             if let loc = locationManager.userLocation {
@@ -148,7 +144,7 @@ struct RunningActiveView: View {
             ForEach(pines) { pin in
                 Annotation(pin.etiqueta, coordinate: pin.coordinate, anchor: .bottom) {
                     PinMapAnnotation(pin: pin) {
-                        mostrarAlertaPin = pin
+                        eliminarPinInmediato(pin)
                     }
                 }
             }
@@ -200,13 +196,28 @@ struct RunningActiveView: View {
             .accessibilityLabel("Finalizar corrida")
             .accessibilityHint("Detiene la sesión y muestra el resumen de tu corrida")
             .confirmationDialog("¿Finalizar corrida?", isPresented: $mostrarConfirmarFinalizar, titleVisibility: .visible) {
-                Button("Finalizar", role: .destructive) {
-                    sessionTracker.pausar()
-                    finalizarConStats(completado: false)
+                if clubSesionId != nil {
+                    Button("Finalizar solo para mí", role: .destructive) {
+                        sessionTracker.pausar()
+                        finalizarConStats(completado: false)
+                    }
+                    Button("Finalizar para todos", role: .destructive) {
+                        sessionTracker.pausar()
+                        Task { await finalizarParaTodos() }
+                    }
+                } else {
+                    Button("Finalizar", role: .destructive) {
+                        sessionTracker.pausar()
+                        finalizarConStats(completado: false)
+                    }
                 }
                 Button("Cancelar", role: .cancel) {}
             } message: {
-                Text("Se guardará tu progreso hasta este punto.")
+                if clubSesionId != nil {
+                    Text("Puedes salir solo tú o terminar la corrida del club para todos los participantes.")
+                } else {
+                    Text("Se guardará tu progreso hasta este punto.")
+                }
             }
             Spacer()
             HStack(spacing: TrazoSpacing.xs) {
@@ -394,14 +405,60 @@ struct RunningActiveView: View {
 
     private func verificarPinesCercanos(_ loc: CLLocationCoordinate2D) {
         let locUsuario = CLLocation(latitude: loc.latitude, longitude: loc.longitude)
-        let pinCercano = pines.first { pin in
+        for pin in pines {
             let locPin = CLLocation(latitude: pin.latitud, longitude: pin.longitud)
-            return locUsuario.distance(from: locPin) < 80
+            let distancia = locUsuario.distance(from: locPin)
+            if distancia < 25 {
+                eliminarPinInmediato(pin)
+            } else if distancia < 80 && voiceNavigationEnabled {
+                voiceNav.anunciarPinCercano(pin.etiqueta)
+            }
         }
-        if let pin = pinCercano {
-            if mostrarAlertaPin == nil { mostrarAlertaPin = pin }
-            voiceNav.anunciarPinCercano(pin.etiqueta)
+    }
+
+    private func iniciarPollingClubSesion() {
+        guard let sesionId = clubSesionId else { return }
+        pollingClubTask?.cancel()
+        pollingClubTask = Task { @MainActor in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(3))
+                guard !Task.isCancelled else { break }
+                struct EstadoRow: Decodable { let estado: String }
+                let row: EstadoRow? = try? await SupabaseService.client
+                    .from("sesiones_club")
+                    .select("estado")
+                    .eq("id", value: sesionId.uuidString)
+                    .single().execute().value
+                if let estado = row?.estado, estado == "finalizada" {
+                    if statsFinales == nil {
+                        finalizadoPorOtro = true
+                        sessionTracker.pausar()
+                        finalizarConStats(completado: false)
+                    }
+                    break
+                }
+            }
         }
+    }
+
+    private func finalizarParaTodos() async {
+        guard let sesionId = clubSesionId else { return }
+        struct Update: Encodable { let estado: String }
+        try? await SupabaseService.client
+            .from("sesiones_club")
+            .update(Update(estado: "finalizada"))
+            .eq("id", value: sesionId.uuidString)
+            .execute()
+        finalizarConStats(completado: false)
+    }
+
+    private func eliminarPinInmediato(_ pin: PinAdvertencia) {
+        guard !pinesEliminados.contains(pin.id) else { return }
+        pinesEliminados.insert(pin.id)
+        withAnimation(.easeOut(duration: 0.25)) {
+            pines.removeAll { $0.id == pin.id }
+        }
+        Task { try? await PinAdvertenciaService.votarResuelto(pinId: pin.id) }
     }
 }
 

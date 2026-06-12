@@ -61,7 +61,7 @@ struct MarioKartSessionView: View {
             .presentationBackground(TrazoColors.background)
         }
         .fullScreenCover(item: $rutaParaCorrer) { plan in
-            RunningActiveView(plan: plan)
+            RunningActiveView(plan: plan, clubSesionId: sesion.id)
                 .onAppear { ActiveRunManager.shared.hayCorridaActiva = true }
                 .onDisappear { ActiveRunManager.shared.hayCorridaActiva = false }
         }
@@ -192,6 +192,8 @@ struct MarioKartSessionView: View {
                             .background(voté ? TrazoColors.routeTeal : TrazoColors.routeTeal.opacity(0.12))
                             .clipShape(Capsule())
                         }
+                        .accessibilityLabel(voté ? "Ya votaste por la ruta de \(ruta.nombreUsuario)" : "Votar por la ruta de \(ruta.nombreUsuario)")
+                        .accessibilityHint("Suma tu voto para que el club elija esta ruta")
                     }
                 }
             }
@@ -232,11 +234,15 @@ struct MarioKartSessionView: View {
                 } label: {
                     proposeButtonLabel(icono: "sparkles", titulo: "Con IA", color: TrazoColors.accentOrange)
                 }
+                .accessibilityLabel("Proponer ruta con IA")
+                .accessibilityHint("Genera una ruta personalizada con inteligencia artificial para proponerla al club")
                 Button {
                     mostrarManualSheet = true
                 } label: {
                     proposeButtonLabel(icono: "map", titulo: "Manual", color: TrazoColors.routeTeal)
                 }
+                .accessibilityLabel("Proponer ruta manual")
+                .accessibilityHint("Selecciona el destino en el mapa y proponer la ruta al club")
             }
 
             if clubService.rutasPropuestas.count >= 1 {

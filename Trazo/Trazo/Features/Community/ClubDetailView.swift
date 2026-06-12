@@ -1,3 +1,4 @@
+import Supabase
 import SwiftUI
 
 private extension Date {
@@ -24,6 +25,7 @@ struct ClubDetailView: View {
     @State private var enviando = false
     @State private var mostrarConfirmacion = false
     @State private var accionConfirmacion: AccionConfirmacion = .salir
+    @State private var pollingExistenciaTask: Task<Void, Never>?
 
     enum Tab { case chat, sesion }
     enum AccionConfirmacion { case salir, eliminar }
@@ -91,8 +93,12 @@ struct ClubDetailView: View {
             await clubService.cargarMensajes(clubId: club.id)
             await clubService.cargarSesionActiva(clubId: club.id)
             clubService.iniciarPollingMensajes(clubId: club.id)
+            iniciarPollingExistencia()
         }
-        .onDisappear { clubService.detenerPolling() }
+        .onDisappear {
+            clubService.detenerPolling()
+            pollingExistenciaTask?.cancel()
+        }
         .onChange(of: clubService.sesionActiva) { _, nueva in
             if nueva == nil { mostrarMarioKart = false }
         }
@@ -302,5 +308,25 @@ struct ClubDetailView: View {
         guard let uid = profile?.id else { return }
         _ = try? await clubService.crearSesion(clubId: club.id, modo: modo, userId: uid)
         mostrarMarioKart = true
+    }
+
+    private func iniciarPollingExistencia() {
+        pollingExistenciaTask?.cancel()
+        pollingExistenciaTask = Task { @MainActor in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(4))
+                guard !Task.isCancelled else { break }
+                struct IdRow: Decodable { let id: UUID }
+                let rows: [IdRow] = (try? await SupabaseService.client
+                    .from("clubs").select("id")
+                    .eq("id", value: club.id.uuidString)
+                    .limit(1).execute().value) ?? []
+                if rows.isEmpty {
+                    mostrarMarioKart = false
+                    dismiss()
+                    break
+                }
+            }
+        }
     }
 }

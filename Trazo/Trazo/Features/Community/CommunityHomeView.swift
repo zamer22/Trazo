@@ -10,6 +10,7 @@ struct CommunityHomeView: View {
     @State private var codigoIngresado = ""
     @State private var errorCodigo: String?
     @State private var buscandoCodigo = false
+    @State private var pollingClubsTask: Task<Void, Never>?
 
     var body: some View {
         NavigationStack {
@@ -45,6 +46,25 @@ struct CommunityHomeView: View {
         .task {
             guard let uid = profile?.id else { return }
             await clubService.cargarMisClubs(userId: uid)
+            iniciarPollingClubs(userId: uid)
+        }
+        .onDisappear { pollingClubsTask?.cancel() }
+        .onChange(of: clubService.misClubs) { _, clubs in
+            if let sel = clubSeleccionado,
+               !clubs.contains(where: { $0.id == sel.id }) {
+                clubSeleccionado = nil
+            }
+        }
+    }
+
+    private func iniciarPollingClubs(userId: UUID) {
+        pollingClubsTask?.cancel()
+        pollingClubsTask = Task { @MainActor in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(5))
+                guard !Task.isCancelled else { break }
+                await clubService.cargarMisClubs(userId: userId)
+            }
         }
     }
 
@@ -90,6 +110,17 @@ struct CommunityHomeView: View {
             .clipShape(RoundedRectangle(cornerRadius: TrazoRadius.md, style: .continuous))
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(label)
+        .accessibilityHint(hintParaAccion(label))
+    }
+
+    private func hintParaAccion(_ label: String) -> String {
+        switch label {
+        case "Crear club": return "Abre el formulario para crear un nuevo club de corredores"
+        case "Unirse con código": return "Ingresa un código de 6 letras para unirte a un club existente"
+        case "Explorar": return "Busca clubs públicos abiertos a nuevos miembros"
+        default: return ""
+        }
     }
 
     // MARK: - Mis clubs
@@ -100,6 +131,8 @@ struct CommunityHomeView: View {
             ForEach(clubService.misClubs) { club in
                 Button { clubSeleccionado = club } label: { clubRow(club) }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Club \(club.nombre)")
+                    .accessibilityHint("Abre el club para ver el chat, proponer rutas y participar en Rally")
             }
         }
     }
