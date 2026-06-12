@@ -1,0 +1,51 @@
+# ──────────────────────────────────────────────
+# Herramientas de asistencia / agentes — no versionar
+# ──────────────────────────────────────────────
+
+# Claude Code
+.claude/
+CLAUDE.md
+CLAUDE.MD
+CLAUDE.local.md
+.claude.json
+
+# Skills / agentes
+.agents/
+skills-lock.json
+skills.json
+
+# MCP (Model Context Protocol)
+.mcp.json
+.cursor/
+.cursorrules
+.windsurfrules
+.github/copilot-instructions.md
+.aider*
+.continue/
+
+# ──────────────────────────────────────────────
+# Datos pesados — no versionar (demasiado grandes para git)
+# ──────────────────────────────────────────────
+
+# Datasets de elevación (GeoTIFF / HGT originales, ~1.4 GB c/u)
+*.tif
+*.tiff
+*.hgt
+
+# Salidas generadas
+*.csv
+
+# ──────────────────────────────────────────────
+# Secretos / entorno
+# ──────────────────────────────────────────────
+.env
+.env.*
+*.local
+
+# ──────────────────────────────────────────────
+# Sistema operativo
+# ──────────────────────────────────────────────
+Thumbs.db
+ehthumbs.db
+desktop.ini
+.DS_Store
