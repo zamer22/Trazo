@@ -49,7 +49,7 @@ struct ClubMensaje: Identifiable, Codable {
     }
 }
 
-struct SesionClub: Identifiable, Codable {
+struct SesionClub: Identifiable, Codable, Equatable {
     let id: UUID
     let clubId: UUID
     let modo: String

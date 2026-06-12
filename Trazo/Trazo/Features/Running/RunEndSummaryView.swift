@@ -26,10 +26,10 @@ struct RunStats: Identifiable {
 
 @Generable
 private struct ResumenRunIA {
-    @Guide(description: "Mensaje de 2-3 oraciones. Si completó la ruta: celebración específica mencionando la distancia y tiempo exactos. Si no completó: aliento mencionando cuántos km logró vs el objetivo, tono positivo y motivador.")
+    @Guide(description: "Mensaje de 2 oraciones en español cotidiano. Si completó: celebra con entusiasmo real mencionando la distancia y tiempo. Si no completó: alienta positivamente. SIN términos médicos, como si lo dijera un amigo corredor.")
     var mensaje: String
 
-    @Guide(description: "Lista de exactamente 3 consejos de running MUY específicos a los números de esta corrida. PROHIBIDO ser genérico. Menciona valores concretos: ritmo actual, distancia, nivel, VO2max si aplica, frecuencia semanal. Cada tip en máximo 2 oraciones.")
+    @Guide(description: "Lista de exactamente 3 consejos prácticos en lenguaje simple que cualquier persona entiende. Ejemplos: 'La próxima vez intenta salir 10 minutos antes para calentar', 'Bebe agua en cuanto termines, el cuerpo lo necesita'. SIN VO₂ máx, sin zonas cardíacas, sin términos técnicos.")
     var protips: [String]
 }
 
@@ -47,7 +47,7 @@ private final class ResumenService {
         let prompt = buildPrompt(stats: stats, perfil: perfil)
         do {
             let session = LanguageModelSession(
-                instructions: "Eres un coach de running experto. Analizas corridas y das consejos muy específicos basados en los datos reales del corredor."
+                instructions: "Eres un coach de running amigo que habla de manera cercana y simple. NUNCA uses términos médicos como VO₂ máx, zona cardíaca, lactato, ni porcentajes de FC. Habla como: 'tu resistencia está mejorando', 'el cuerpo respondió bien', 'vas a fondo'. Los consejos deben ser prácticos y cotidianos."
             )
             let r = try await session.respond(to: prompt, generating: ResumenRunIA.self)
             estado = .listo(r.content)
@@ -104,6 +104,7 @@ struct RunEndSummaryView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var resumenService = ResumenService()
+    @State private var aparecer = false
 
     let stats: RunStats
     let onClose: () -> Void
@@ -111,76 +112,84 @@ struct RunEndSummaryView: View {
     var body: some View {
         ZStack {
             TrazoColors.background.ignoresSafeArea()
-            ScrollView {
-                VStack(spacing: TrazoSpacing.xl) {
-                    encabezado
-                    statsGrid
-                    if !stats.completado { barraProgreso }
-                    tipsSection
-                    botonCerrar
+            VStack(spacing: 0) {
+                heroSection
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: TrazoSpacing.xl) {
+                        statsRow
+                        if !stats.completado { barraProgreso }
+                        aiMensajeSection
+                        tipsSection
+                        botonCerrar
+                    }
+                    .padding(.horizontal, TrazoSpacing.xl)
+                    .padding(.top, TrazoSpacing.xl)
+                    .padding(.bottom, 60)
                 }
-                .padding(.horizontal, TrazoSpacing.xl)
-                .padding(.top, TrazoSpacing.xxxl)
-                .padding(.bottom, TrazoSpacing.xxxl)
             }
         }
         .task { await resumenService.generar(stats: stats, perfil: perfil) }
+        .onAppear {
+            withAnimation(.spring(duration: 0.6).delay(0.1)) { aparecer = true }
+        }
     }
 
-    // MARK: - Encabezado
+    // MARK: - Hero
 
-    private var encabezado: some View {
-        VStack(spacing: TrazoSpacing.md) {
-            Text(stats.completado ? "🏆" : "💪")
-                .font(.system(size: 56))
-            switch resumenService.estado {
-            case .cargando:
-                VStack(spacing: TrazoSpacing.sm) {
-                    ProgressView().tint(TrazoColors.routeTeal)
-                    Text("Analizando tu corrida...")
-                        .font(TrazoTypography.body())
-                        .foregroundStyle(TrazoColors.textSecondary)
-                }
-            case .listo(let r):
-                Text(stats.completado ? "¡Lo lograste!" : "¡Buen esfuerzo!")
+    private var heroSection: some View {
+        ZStack(alignment: .bottom) {
+            LinearGradient(
+                colors: stats.completado
+                    ? [TrazoColors.routeTeal, TrazoColors.routeTeal.opacity(0.75)]
+                    : [TrazoColors.accentOrange, TrazoColors.accentOrange.opacity(0.75)],
+                startPoint: .topLeading, endPoint: .bottomTrailing
+            )
+            VStack(spacing: TrazoSpacing.md) {
+                Image(systemName: stats.completado ? "checkmark.circle.fill" : "figure.run.circle.fill")
+                    .font(.system(size: 52, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.9))
+                    .scaleEffect(aparecer ? 1 : 0.5)
+                    .opacity(aparecer ? 1 : 0)
+                Text(stats.completado ? "¡Ruta completada!" : "¡Buen esfuerzo!")
                     .font(TrazoTypography.largeTitle())
-                    .foregroundStyle(TrazoColors.textPrimary)
-                Text(r.mensaje)
-                    .font(TrazoTypography.body())
-                    .foregroundStyle(TrazoColors.textSecondary)
-                    .multilineTextAlignment(.center)
-            case .error:
-                EmptyView()
-            }
-        }
-        .frame(maxWidth: .infinity)
-    }
-
-    // MARK: - Stats
-
-    private var statsGrid: some View {
-        HStack(spacing: TrazoSpacing.md) {
-            statCard(valor: String(format: "%.2f", stats.distanciaRecorridaKm), unidad: "KM", label: "Corriste")
-            statCard(valor: stats.elapsedFormatted, unidad: "", label: "Tiempo")
-            statCard(valor: stats.ritmoStr.components(separatedBy: " ").first ?? stats.ritmoStr, unidad: "/km", label: "Ritmo")
-        }
-        .frame(maxWidth: .infinity)
-
-    }
-
-    private func statCard(valor: String, unidad: String, label: String) -> some View {
-        VStack(spacing: 4) {
-            HStack(alignment: .lastTextBaseline, spacing: 2) {
-                Text(valor)
-                    .font(TrazoTypography.statValue())
-                    .foregroundStyle(TrazoColors.textPrimary)
-                    .minimumScaleFactor(0.7)
-                if !unidad.isEmpty {
-                    Text(unidad)
-                        .font(TrazoTypography.caption())
-                        .foregroundStyle(TrazoColors.textSecondary)
+                    .foregroundStyle(.white)
+                HStack(alignment: .lastTextBaseline, spacing: 6) {
+                    Text(String(format: "%.2f", stats.distanciaRecorridaKm))
+                        .font(.system(size: 60, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                        .monospacedDigit()
+                    Text("km")
+                        .font(.title2.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.7))
                 }
+                .opacity(aparecer ? 1 : 0)
+                .offset(y: aparecer ? 0 : 20)
             }
+            .padding(.top, 56)
+            .padding(.bottom, TrazoSpacing.xxxl)
+            .frame(maxWidth: .infinity)
+        }
+        .ignoresSafeArea(edges: .top)
+        .frame(maxHeight: 280)
+    }
+
+    // MARK: - Stats fila
+
+    private var statsRow: some View {
+        HStack(spacing: TrazoSpacing.md) {
+            miniStat(valor: stats.elapsedFormatted, label: "Tiempo")
+            miniStat(valor: stats.ritmoStr.components(separatedBy: " ").first ?? "--", label: "Ritmo /km")
+            miniStat(valor: "\(stats.calorias)", label: "Calorías")
+        }
+    }
+
+    private func miniStat(valor: String, label: String) -> some View {
+        VStack(spacing: 4) {
+            Text(valor)
+                .font(TrazoTypography.statValue())
+                .foregroundStyle(TrazoColors.textPrimary)
+                .minimumScaleFactor(0.6)
+                .monospacedDigit()
             Text(label)
                 .font(TrazoTypography.statLabel())
                 .foregroundStyle(TrazoColors.textSecondary)
@@ -188,7 +197,45 @@ struct RunEndSummaryView: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, TrazoSpacing.lg)
         .background(TrazoColors.surface)
-        .clipShape(RoundedRectangle(cornerRadius: TrazoRadius.sm, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: TrazoRadius.md, style: .continuous))
+    }
+
+    // MARK: - AI mensaje
+
+    @ViewBuilder
+    private var aiMensajeSection: some View {
+        switch resumenService.estado {
+        case .cargando:
+            HStack(spacing: TrazoSpacing.md) {
+                ProgressView().tint(TrazoColors.routeTeal)
+                Text("Tu coach está analizando la corrida...")
+                    .font(TrazoTypography.body())
+                    .foregroundStyle(TrazoColors.textSecondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(TrazoSpacing.lg)
+            .background(TrazoColors.surface)
+            .clipShape(RoundedRectangle(cornerRadius: TrazoRadius.md, style: .continuous))
+        case .listo(let r):
+            HStack(alignment: .top, spacing: TrazoSpacing.md) {
+                Image(systemName: "person.fill.checkmark")
+                    .font(.body)
+                    .foregroundStyle(.white)
+                    .frame(width: 36, height: 36)
+                    .background(stats.completado ? TrazoColors.routeTeal : TrazoColors.accentOrange)
+                    .clipShape(Circle())
+                Text(r.mensaje)
+                    .font(TrazoTypography.body())
+                    .foregroundStyle(TrazoColors.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(TrazoSpacing.lg)
+            .background(TrazoColors.surface)
+            .clipShape(RoundedRectangle(cornerRadius: TrazoRadius.md, style: .continuous))
+        case .error:
+            EmptyView()
+        }
     }
 
     // MARK: - Barra de progreso
@@ -201,8 +248,8 @@ struct RunEndSummaryView: View {
                     .foregroundStyle(TrazoColors.textSecondary)
                 Spacer()
                 Text(String(format: "%.0f%%", stats.porcentaje * 100))
-                    .font(TrazoTypography.caption())
-                    .foregroundStyle(TrazoColors.textSecondary)
+                    .font(TrazoTypography.caption().weight(.semibold))
+                    .foregroundStyle(TrazoColors.routeTeal)
             }
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
@@ -221,43 +268,38 @@ struct RunEndSummaryView: View {
     @ViewBuilder
     private var tipsSection: some View {
         switch resumenService.estado {
-        case .cargando:
-            HStack(spacing: TrazoSpacing.sm) {
-                ProgressView().tint(TrazoColors.routeTeal)
-                Text("Generando pro tips personalizados...")
-                    .font(TrazoTypography.body())
-                    .foregroundStyle(TrazoColors.textSecondary)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(TrazoSpacing.xl)
         case .listo(let r):
             VStack(alignment: .leading, spacing: TrazoSpacing.md) {
-                Text("Pro Tips")
+                Label("Consejos para tu próxima corrida", systemImage: "lightbulb.fill")
                     .font(TrazoTypography.headline())
                     .foregroundStyle(TrazoColors.textPrimary)
-                ForEach(Array(r.protips.enumerated()), id: \.offset) { _, tip in
-                    tipCard(texto: tip)
+                ForEach(Array(r.protips.enumerated()), id: \.offset) { idx, tip in
+                    tipCard(numero: idx + 1, texto: tip)
                 }
             }
-        case .error:
+        default:
             EmptyView()
         }
     }
 
-    private func tipCard(texto: String) -> some View {
+    private func tipCard(numero: Int, texto: String) -> some View {
         HStack(alignment: .top, spacing: TrazoSpacing.md) {
-            Image(systemName: "lightbulb.fill")
-                .font(.caption)
-                .foregroundStyle(TrazoColors.accentOrange)
-                .padding(.top, 2)
+            Text("\(numero)")
+                .font(TrazoTypography.caption().weight(.bold))
+                .foregroundStyle(.white)
+                .frame(width: 24, height: 24)
+                .background(TrazoColors.accentOrange)
+                .clipShape(Circle())
+                .padding(.top, 1)
             Text(texto)
                 .font(TrazoTypography.body())
                 .foregroundStyle(TrazoColors.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .padding(TrazoSpacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(TrazoColors.surface)
-        .clipShape(RoundedRectangle(cornerRadius: TrazoRadius.sm, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: TrazoRadius.md, style: .continuous))
     }
 
     // MARK: - Botón

@@ -183,6 +183,38 @@ final class ClubService {
         rutasPropuestas = result ?? []
     }
 
+    // MARK: - Gestión de sesión
+
+    func finalizarSesion(sesionId: UUID) async throws {
+        struct Update: Encodable { let estado: String }
+        try await SupabaseService.client
+            .from("sesiones_club")
+            .update(Update(estado: "finalizada"))
+            .eq("id", value: sesionId.uuidString)
+            .execute()
+        sesionActiva = nil
+        rutasPropuestas = []
+    }
+
+    // MARK: - Gestión de clubs
+
+    func eliminarClub(clubId: UUID) async throws {
+        try await SupabaseService.client
+            .from("clubs").delete()
+            .eq("id", value: clubId.uuidString)
+            .execute()
+        misClubs.removeAll { $0.id == clubId }
+    }
+
+    func salirDeClub(clubId: UUID, userId: UUID) async throws {
+        try await SupabaseService.client
+            .from("club_miembros").delete()
+            .eq("club_id", value: clubId.uuidString)
+            .eq("user_id", value: userId.uuidString)
+            .execute()
+        misClubs.removeAll { $0.id == clubId }
+    }
+
     // MARK: - Helpers
 
     private func generarCodigo() -> String {

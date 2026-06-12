@@ -8,12 +8,14 @@ struct RecomendacionRuta {
     var modoRecomendado: String
 
     @Guide(description: """
-        Briefing personalizado en 3-4 oraciones. DEBES incluir datos numéricos concretos de estos factores:
-        1. Tiempo estimado real basado en el ritmo actual del corredor para ESA distancia específica.
-        2. Zona de frecuencia cardíaca esperada (% de FC máx si tienes edad, o zona cualitativa).
-        3. Si el desnivel es manejable o exigente PARA ESTE corredor específico (según su VO₂ máx y nivel).
-        4. Una recomendación accionable: hidratación, calentamiento, o ajuste de ritmo según su perfil.
-        Usa números concretos. NO uses lenguaje genérico. Habla directamente al corredor en segunda persona.
+        Briefing en 2-3 oraciones en español muy sencillo, como si le hablaras a un amigo que va a salir a correr.
+        REGLAS ESTRICTAS:
+        - NUNCA uses: VO₂ máx, FC máxima, zona cardíaca, lactato, reserva cardíaca. NINGÚN término médico.
+        - SÍ puedes decir: 'tu resistencia', 'tu corazón va a latir bastante', 'ritmo cómodo donde puedes hablar'.
+        - Menciona cuántos minutos va a tardar esta persona y si el terreno tiene cuestas o es plano.
+        - Para describir desnivel usa comparaciones: 'como subir 4 pisos', 'casi plano', 'vas a sentir las subidas'.
+        - Adapta el tono: anima al principiante, sé directo con el avanzado.
+        - Última oración: UNA recomendación práctica simple ('toma agua antes de salir', 'calienta 5 min', etc).
         """)
     var razon: String
 
@@ -113,14 +115,15 @@ final class AIRouteOptimizer {
         var partes: [String] = []
         let ritmo = perfil?.averagePaceMinPerKm ?? 6.5
         let tiempoReal = Int(plan.distanceKm * ritmo)
-        partes.append("A tu ritmo de \(perfil?.formattedPace ?? "6:30 /km"), completarás esta ruta de \(String(format: "%.1f", plan.distanceKm)) km en aproximadamente \(tiempoReal) minutos.")
-        if let vo2 = perfil?.vo2Max {
-            let capacidad = vo2 > 50 ? "alta" : vo2 > 35 ? "moderada" : "básica"
-            partes.append("Con tu VO₂ máx de \(Int(vo2)) mL/kg/min (capacidad aeróbica \(capacidad)), el terreno \(plan.desnivel.lowercased()) no debería representar un problema.")
+        partes.append("A tu ritmo vas a tardar unos \(tiempoReal) minutos en cubrir los \(String(format: "%.1f", plan.distanceKm)) km de esta ruta.")
+        if plan.gananciaElevacionM > 150 {
+            partes.append("El terreno tiene cuestas que vas a sentir, como subir varios pisos en total — ve a un ritmo que te permita hablar.")
+        } else if plan.gananciaElevacionM > 50 {
+            partes.append("El terreno tiene algo de subida pero nada exigente — podrás mantener un ritmo constante.")
+        } else {
+            partes.append("El terreno es prácticamente plano, ideal para mantener un paso parejo.")
         }
-        if plan.gananciaElevacionM > 100 {
-            partes.append("El desnivel de \(plan.gananciaElevacionM) m requiere ajustar el ritmo en las subidas.")
-        }
+        partes.append("Toma agua antes de salir y calienta 5 minutos caminando.")
         return partes.joined(separator: " ")
     }
 
@@ -128,15 +131,18 @@ final class AIRouteOptimizer {
 
     private func instrucciones() -> String {
         """
-        Eres un coach de running experto en fisiología del ejercicio. Analizas rutas y das briefings personalizados.
+        Eres un entrenador de running que explica rutas en español sencillo, como si le hablaras a un amigo.
         REGLAS:
-        - Elige entre 'ida' o 'ida_y_vuelta' el modo óptimo para ESTE corredor específico.
-        - El briefing DEBE mencionar números concretos: tiempo estimado en minutos, km exactos, metros de desnivel, FC esperada si tienes datos de edad.
-        - Si tienes VO₂ máx, calcula el porcentaje de capacidad aeróbica que usará el corredor (esfuerzo estimado = distancia×ritmo / capacidad).
-        - Si tienes FC reposo y edad, estima la zona de entrenamiento (FC máx ≈ 220 − edad, zona 2 = 60-70%, zona 3 = 70-80%, zona 4 = 80-90%).
-        - Adapta el tono: sé más cauteloso con principiantes, más exigente con avanzados.
-        - Si el corredor prefiere rutas planas pero la ruta tiene mucho desnivel, menciónalo.
-        - Termina SIEMPRE con una recomendación accionable específica (no genérica).
+        - Elige 'ida' o 'ida_y_vuelta' según lo que sea mejor para esta persona.
+        - Habla en lenguaje simple, sin términos médicos. Ejemplos:
+          * En vez de 'VO₂ máx' di 'tu resistencia cardiovascular'.
+          * En vez de 'zona 2 de frecuencia cardíaca' di 'un ritmo cómodo donde puedes hablar'.
+          * En vez de 'FC máxima' di 'el límite de pulsaciones de tu corazón'.
+        - Siempre menciona cuántos minutos tardará esta persona y a qué ritmo va.
+        - Describe el desnivel con comparaciones reales: 'es como subir 3 pisos', 'terreno casi plano', 'hay cuestas que notarás'.
+        - Si la persona es principiante, sé animador y tranquilizador. Si es avanzado, sé más directo.
+        - Termina con UNA recomendación práctica y simple: tomar agua, calentar 5 minutos, ir despacio al principio, etc.
+        - Máximo 4 oraciones. Nada de listas ni bullets, escribe como párrafo natural.
         """
     }
 
@@ -192,10 +198,15 @@ final class AIRouteOptimizer {
         partes.append(p.preferFlatRoutes ? "Prefiere rutas planas (evita desnivel)." : "Acepta terrenos con desnivel.")
         partes.append(p.avoidHighways ? "Evita autopistas." : "No restringe tipo de vialidad.")
 
+        partes.append("--- PREFERENCIAS DE RUTA ---")
+        partes.append("Los corredores prefieren caminos rectos y continuos. Evita rutas en zigzag innecesario.")
+        partes.append("Evita avenidas muy transitadas o peligrosas (como Constitución, bulevardes de alta velocidad, autopistas, puentes vehiculares).")
+        partes.append("Prefiere calles interiores, parques, ciclovías o colonias tranquilas cuando es posible.")
+
         partes.append("--- TAREA ---")
         partes.append("1. Elige el modo óptimo (ida o ida_y_vuelta) para este corredor.")
-        partes.append("2. Genera un briefing personalizado usando los datos numéricos de salud disponibles.")
-        partes.append("3. Incluye: tiempo real esperado, esfuerzo cardíaco estimado, viabilidad del desnivel para este corredor.")
+        partes.append("2. Genera un briefing en lenguaje sencillo: tiempo esperado, sensación de esfuerzo, descripción simple del terreno.")
+        partes.append("3. Termina con una recomendación práctica de 1 oración.")
 
         return partes.joined(separator: "\n")
     }

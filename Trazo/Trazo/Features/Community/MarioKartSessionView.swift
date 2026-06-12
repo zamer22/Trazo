@@ -39,6 +39,9 @@ struct MarioKartSessionView: View {
                 decodificarYCorrer(json)
             }
         }
+        .onChange(of: clubService.sesionActiva) { _, nueva in
+            if nueva == nil { dismiss() }
+        }
         .sheet(isPresented: $mostrarAISheet) {
             if let loc = locationManager.userLocation {
                 AITrazoSheet(userLocation: loc) { plan in
@@ -285,6 +288,14 @@ struct MarioKartSessionView: View {
             if let json = clubService.sesionActiva?.rutaGanadoraJson, let plan = parsearPlan(json) {
                 TrazoButton(title: "Empezar a correr") {
                     rutaParaCorrer = plan
+                }
+            }
+            TrazoButton(title: "Finalizar sesión", style: .secondary) {
+                Task {
+                    if let sesionId = clubService.sesionActiva?.id {
+                        try? await clubService.finalizarSesion(sesionId: sesionId)
+                    }
+                    dismiss()
                 }
             }
         }

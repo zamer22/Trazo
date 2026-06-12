@@ -24,7 +24,6 @@ struct RestaurantsHomeView: View {
     enum ViewMode: String, CaseIterable {
         case descubrir = "Descubrir"
         case mapa      = "Mapa"
-        case lista     = "Lista"
     }
 
     private var restaurantesFiltrados: [Restaurante] {
@@ -41,7 +40,6 @@ struct RestaurantsHomeView: View {
                         switch viewMode {
                         case .descubrir: descubrirView
                         case .mapa:      mapaView
-                        case .lista:     listaView
                         }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -245,7 +243,7 @@ struct RestaurantsHomeView: View {
     private var mapaView: some View {
         Map(position: $cameraPosition) {
             UserAnnotation()
-            ForEach(restaurantesFiltrados) { r in
+            ForEach(restaurantes) { r in
                 Annotation(r.nombre, coordinate: r.coordinate, anchor: .bottom) {
                     Button { seleccionado = r } label: {
                         VStack(spacing: 2) {
@@ -268,6 +266,10 @@ struct RestaurantsHomeView: View {
         .mapStyle(.standard(pointsOfInterest: .excludingAll))
         .mapControls { }
         .onAppear { centrarMapa() }
+        .task {
+            if restaurantes.isEmpty { await cargarTodo() }
+            centrarMapa()
+        }
     }
 
     // MARK: - Lista
@@ -294,12 +296,24 @@ struct RestaurantsHomeView: View {
     private func restauranteRow(_ r: Restaurante) -> some View {
         TrazoCard {
             HStack(spacing: TrazoSpacing.md) {
-                RoundedRectangle(cornerRadius: TrazoRadius.sm, style: .continuous)
-                    .fill(r.colorTipo.opacity(0.15))
-                    .frame(width: 56, height: 56)
-                    .overlay {
-                        Image(systemName: r.icono).foregroundStyle(r.colorTipo).font(.title3)
+                Group {
+                    if let urlStr = r.fotoUrl, let url = URL(string: urlStr) {
+                        AsyncImage(url: url) { phase in
+                            switch phase {
+                            case .success(let img):
+                                img.resizable().scaledToFill()
+                            default:
+                                r.colorTipo.opacity(0.15)
+                                    .overlay { Image(systemName: r.icono).foregroundStyle(r.colorTipo).font(.title3) }
+                            }
+                        }
+                    } else {
+                        r.colorTipo.opacity(0.15)
+                            .overlay { Image(systemName: r.icono).foregroundStyle(r.colorTipo).font(.title3) }
                     }
+                }
+                .frame(width: 60, height: 60)
+                .clipShape(RoundedRectangle(cornerRadius: TrazoRadius.sm, style: .continuous))
                 VStack(alignment: .leading, spacing: TrazoSpacing.xs) {
                     Text(r.nombre)
                         .font(TrazoTypography.headline())
@@ -374,7 +388,12 @@ struct RestaurantsHomeView: View {
                 cameraPosition = .camera(MapCamera(centerCoordinate: loc, distance: 2000))
             }
         } else if let primero = restaurantes.first {
-            cameraPosition = .camera(MapCamera(centerCoordinate: primero.coordinate, distance: 2500))
+            withAnimation {
+                cameraPosition = .camera(MapCamera(centerCoordinate: primero.coordinate, distance: 2500))
+            }
+        } else {
+            let mty = CLLocationCoordinate2D(latitude: 25.6866, longitude: -100.3161)
+            cameraPosition = .camera(MapCamera(centerCoordinate: mty, distance: 3000))
         }
     }
 }

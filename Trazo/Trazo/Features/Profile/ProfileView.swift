@@ -215,12 +215,9 @@ struct ProfileSettingsView: View {
 
                 Section("Físico") {
                     Stepper("Peso: \(Int(profile.weightKg)) kg", value: $profile.weightKg, in: 40...120)
-                    Slider(
-                        value: $profile.averagePaceMinPerKm,
-                        in: 4...10,
-                        step: 0.25
-                    ) {
-                        Text("Ritmo: \(profile.formattedPace)")
+                    LabeledContent("Ritmo: \(profile.formattedPace)") {
+                        Slider(value: $profile.averagePaceMinPerKm, in: 4...10, step: 0.25)
+                            .frame(width: 140)
                     }
                 }
 

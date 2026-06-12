@@ -13,7 +13,7 @@ struct IntentTrazo {
     @Guide(description: "Etiqueta motivadora de máximo 5 palabras en español que resuma la ruta")
     var etiqueta: String
 
-    @Guide(description: "Razón corta en español (máximo 2 oraciones) explicando por qué esta configuración es ideal para el corredor dado su prompt y su perfil. Si el perfil limita algo que pidió el usuario, explícalo brevemente.")
+    @Guide(description: "Razón corta en 1-2 oraciones en español muy sencillo, sin tecnicismos. Habla directo al usuario: explica por qué esta distancia y dificultad le van bien. Ejemplo: 'Esta distancia va bien para tu ritmo y te va a dejar terminar cómodo.' Sin mencionar VO₂, FC, ni términos médicos.")
     var razon: String
 }
 

@@ -34,7 +34,6 @@ struct RouteSummaryView: View {
                 .ignoresSafeArea()
 
                 statsPanel
-                    .offset(y: 34)
                     .background {
                         GeometryReader { panelGeo in
                             Color.clear
@@ -106,7 +105,7 @@ struct RouteSummaryView: View {
             }
             .padding(.horizontal, TrazoSpacing.lg)
             .padding(.bottom, TrazoSpacing.lg)
-            .fullScreenCover(isPresented: $isRunningActive) {
+            .fullScreenCover(isPresented: $isRunningActive, onDismiss: { dismiss() }) {
                 RunningActiveView(plan: plan)
                     .onAppear { ActiveRunManager.shared.hayCorridaActiva = true }
                     .onDisappear { ActiveRunManager.shared.hayCorridaActiva = false }

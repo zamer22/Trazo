@@ -142,6 +142,23 @@ struct RunningActiveView: View {
                     }
                 }
             }
+            // Pin de destino
+            Annotation(plan.destinationName, coordinate: plan.destinationCoordinate, anchor: .bottom) {
+                VStack(spacing: 0) {
+                    ZStack {
+                        Circle()
+                            .fill(TrazoColors.accentOrange)
+                            .frame(width: 34, height: 34)
+                            .shadow(color: TrazoColors.accentOrange.opacity(0.5), radius: 6, y: 3)
+                        Image(systemName: "flag.checkered")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.white)
+                    }
+                    Triangle()
+                        .fill(TrazoColors.accentOrange)
+                        .frame(width: 10, height: 6)
+                }
+            }
         }
         .mapStyle(.standard(elevation: .automatic, pointsOfInterest: .excludingAll))
         .mapControls { MapScaleView() }
@@ -258,12 +275,14 @@ struct RunningActiveView: View {
         .frame(maxWidth: .infinity)
         .background {
             ZStack {
-                Rectangle().fill(.ultraThinMaterial)
-                Rectangle().fill(Color.black.opacity(0.55))
+                UnevenRoundedRectangle(topLeadingRadius: TrazoRadius.lg, topTrailingRadius: TrazoRadius.lg)
+                    .fill(.ultraThinMaterial)
+                UnevenRoundedRectangle(topLeadingRadius: TrazoRadius.lg, topTrailingRadius: TrazoRadius.lg)
+                    .fill(Color.black.opacity(0.55))
             }
+            .ignoresSafeArea(edges: .bottom)
         }
-        .clipShape(UnevenRoundedRectangle(topLeadingRadius: TrazoRadius.lg, topTrailingRadius: TrazoRadius.lg))
-        .ignoresSafeArea(edges: .bottom)
+        .clipped()
     }
 
     private func statItem(valor: String, unidad: String, label: String) -> some View {

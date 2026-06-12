@@ -1,5 +1,16 @@
 import SwiftUI
 
+private extension Date {
+    var tiempoRelativo: String {
+        let diff = Date().timeIntervalSince(self)
+        if diff < 60 { return "ahora" }
+        if diff < 3600 { return "hace \(Int(diff / 60)) min" }
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        return f.string(from: self)
+    }
+}
+
 struct ClubDetailView: View {
     @Environment(\.currentUserProfile) private var profile
     @Environment(\.dismiss) private var dismiss
@@ -11,8 +22,11 @@ struct ClubDetailView: View {
     @State private var mensajeTexto = ""
     @State private var mostrarMarioKart = false
     @State private var enviando = false
+    @State private var mostrarConfirmacion = false
+    @State private var accionConfirmacion: AccionConfirmacion = .salir
 
     enum Tab { case chat, sesion }
+    enum AccionConfirmacion { case salir, eliminar }
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -49,12 +63,39 @@ struct ClubDetailView: View {
             if tab == .chat { inputBar }
         }
         .navigationBarHidden(true)
+        .confirmationDialog(
+            accionConfirmacion == .eliminar ? "Eliminar \(club.nombre)" : "Salir de \(club.nombre)",
+            isPresented: $mostrarConfirmacion,
+            titleVisibility: .visible
+        ) {
+            if accionConfirmacion == .eliminar {
+                Button("Eliminar grupo", role: .destructive) {
+                    Task {
+                        try? await clubService.eliminarClub(clubId: club.id)
+                        dismiss()
+                    }
+                }
+            } else {
+                Button("Salir del grupo", role: .destructive) {
+                    Task {
+                        if let uid = profile?.id {
+                            try? await clubService.salirDeClub(clubId: club.id, userId: uid)
+                        }
+                        dismiss()
+                    }
+                }
+            }
+            Button("Cancelar", role: .cancel) {}
+        }
         .task {
             await clubService.cargarMensajes(clubId: club.id)
             await clubService.cargarSesionActiva(clubId: club.id)
             clubService.iniciarPollingMensajes(clubId: club.id)
         }
         .onDisappear { clubService.detenerPolling() }
+        .onChange(of: clubService.sesionActiva) { _, nueva in
+            if nueva == nil { mostrarMarioKart = false }
+        }
         .fullScreenCover(isPresented: $mostrarMarioKart) {
             if let sesion = clubService.sesionActiva {
                 MarioKartSessionView(club: club, sesion: sesion, clubService: clubService)
@@ -75,6 +116,27 @@ struct ClubDetailView: View {
                 Text("Código: \(club.codigo)").font(TrazoTypography.caption()).foregroundStyle(TrazoColors.textSecondary)
             }
             Spacer()
+            Menu {
+                if club.creadoPor == profile?.id {
+                    Button(role: .destructive) {
+                        accionConfirmacion = .eliminar
+                        mostrarConfirmacion = true
+                    } label: {
+                        Label("Eliminar grupo", systemImage: "trash")
+                    }
+                } else {
+                    Button(role: .destructive) {
+                        accionConfirmacion = .salir
+                        mostrarConfirmacion = true
+                    } label: {
+                        Label("Salir del grupo", systemImage: "rectangle.portrait.and.arrow.right")
+                    }
+                }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+                    .font(.title3)
+                    .foregroundStyle(TrazoColors.textSecondary)
+            }
         }
         .padding(.horizontal, TrazoSpacing.lg)
         .padding(.vertical, TrazoSpacing.md)
@@ -108,9 +170,9 @@ struct ClubDetailView: View {
         return HStack(alignment: .bottom, spacing: TrazoSpacing.sm) {
             if esMio { Spacer() }
             VStack(alignment: esMio ? .trailing : .leading, spacing: 3) {
-                if !esMio {
-                    Text(msg.nombreUsuario).font(TrazoTypography.caption()).foregroundStyle(TrazoColors.textSecondary)
-                }
+                Text(msg.nombreUsuario)
+                    .font(TrazoTypography.caption())
+                    .foregroundStyle(TrazoColors.textSecondary)
                 Text(msg.contenido)
                     .font(TrazoTypography.body())
                     .foregroundStyle(esMio ? .white : TrazoColors.textPrimary)
@@ -118,6 +180,9 @@ struct ClubDetailView: View {
                     .padding(.vertical, TrazoSpacing.sm)
                     .background(esMio ? TrazoColors.routeTeal : TrazoColors.surface)
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                Text(msg.creadoEn.tiempoRelativo)
+                    .font(.system(size: 10))
+                    .foregroundStyle(TrazoColors.textSecondary)
             }
             if !esMio { Spacer() }
         }
