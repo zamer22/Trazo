@@ -83,7 +83,7 @@ struct RestaurantsHomeView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: TrazoSpacing.md) {
             HStack {
-                Text("Locales")
+                Text("Post-Trazo")
                     .font(TrazoTypography.largeTitle())
                     .foregroundStyle(TrazoColors.textPrimary)
                 Spacer()

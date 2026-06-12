@@ -50,18 +50,20 @@ struct AuthView: View {
     }
 
     private var hero: some View {
-        VStack(spacing: TrazoSpacing.md) {
-            Image(systemName: "figure.run.circle.fill")
-                .font(.system(size: 72))
-                .foregroundStyle(TrazoColors.routeTeal)
+        VStack(spacing: TrazoSpacing.lg) {
+            Image("TrazoLogo")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 120, height: 120)
+                .accessibilityLabel("Trazo")
 
             Text("Trazo")
-                .font(TrazoTypography.largeTitle())
-                .foregroundStyle(TrazoColors.textPrimary)
-
+            .font(TrazoTypography.largeTitle())
+            .foregroundStyle(TrazoColors.textPrimary)
             Text("Tus Trazos, tu ritmo, tu comunidad.")
                 .font(TrazoTypography.body())
                 .foregroundStyle(TrazoColors.textSecondary)
+                .multilineTextAlignment(.center)
         }
     }
 
@@ -182,7 +184,14 @@ struct AuthView: View {
     }
 }
 
-#Preview {
+#Preview("Light") {
     AuthView()
         .environment(AuthService())
+        .preferredColorScheme(.light)
+}
+
+#Preview("Dark") {
+    AuthView()
+        .environment(AuthService())
+        .preferredColorScheme(.dark)
 }

@@ -14,13 +14,13 @@ struct MainTabView: View {
 
             RestaurantsHomeView()
                 .tabItem {
-                    Label("Locales", systemImage: "fork.knife")
+                    Label("Post-Trazo", systemImage: "fork.knife")
                 }
                 .tag(MainTab.restaurants)
 
             CommunityHomeView()
                 .tabItem {
-                    Label("Comunidad", systemImage: "person.3")
+                    Label("Clubs", systemImage: "person.3")
                 }
                 .tag(MainTab.community)
 
