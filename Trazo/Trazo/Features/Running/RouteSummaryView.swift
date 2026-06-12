@@ -8,6 +8,7 @@ struct RouteSummaryView: View {
 
     @State private var statsPanelHeight: CGFloat = 320
     @State private var isRunningActive = false
+    @State private var mostrarAlertaOtraRuta = false
 
     var body: some View {
         GeometryReader { geometry in
@@ -85,12 +86,23 @@ struct RouteSummaryView: View {
             .padding(.horizontal, TrazoSpacing.lg)
 
             TrazoButton(title: "Empezar a correr") {
-                isRunningActive = true
+                if ActiveRunManager.shared.hayCorridaActiva {
+                    mostrarAlertaOtraRuta = true
+                } else {
+                    isRunningActive = true
+                }
             }
             .padding(.horizontal, TrazoSpacing.lg)
             .padding(.bottom, TrazoSpacing.lg)
             .fullScreenCover(isPresented: $isRunningActive) {
                 RunningActiveView(plan: plan)
+                    .onAppear { ActiveRunManager.shared.hayCorridaActiva = true }
+                    .onDisappear { ActiveRunManager.shared.hayCorridaActiva = false }
+            }
+            .alert("Ya hay una corrida activa", isPresented: $mostrarAlertaOtraRuta) {
+                Button("Entendido", role: .cancel) {}
+            } message: {
+                Text("Finaliza tu corrida actual antes de iniciar otra.")
             }
         }
         .frame(maxWidth: .infinity)

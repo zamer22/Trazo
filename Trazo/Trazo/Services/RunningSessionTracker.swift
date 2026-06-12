@@ -47,6 +47,10 @@ final class RunningSessionTracker {
         indiceMasCercano >= plan.coordinates.count - 5
     }
 
+    private(set) var distanciaARutaM: Double = 0
+
+    var estaFueraDeRuta: Bool { distanciaARutaM > 50 }
+
     // MARK: - Estado privado
 
     let plan: RoutePlan
@@ -84,8 +88,12 @@ final class RunningSessionTracker {
 
     func actualizarUbicacion(_ coordenada: CLLocationCoordinate2D) {
         let nuevoIndice = encontrarIndiceMasCercano(a: coordenada)
+        // Calcular distancia real al punto más cercano de la ruta
+        let locUsuario = CLLocation(latitude: coordenada.latitude, longitude: coordenada.longitude)
+        let puntoCercano = plan.coordinates[nuevoIndice]
+        distanciaARutaM = locUsuario.distance(from: CLLocation(latitude: puntoCercano.latitude, longitude: puntoCercano.longitude))
+
         if nuevoIndice > indiceMasCercano {
-            // Avanzar en la ruta — sumar distancia recorrida
             for i in indiceMasCercano..<nuevoIndice {
                 let desde = plan.coordinates[i]
                 let hasta = plan.coordinates[i + 1]

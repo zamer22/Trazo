@@ -45,6 +45,12 @@ struct RunningActiveView: View {
         .navigationBarHidden(true)
         .toolbar(.hidden, for: .tabBar)
         .overlay(alignment: .top) { barraTop }
+        .overlay(alignment: .top) {
+            if sessionTracker.estaFueraDeRuta {
+                futeraDeRutaBanner
+                    .padding(.top, 100)
+            }
+        }
         .sheet(isPresented: $isReportando) {
             PinReporteSheet(userLocation: locationManager.userLocation, userId: profile?.id) { tipo, coord in
                 Task { await agregarPinLocal(tipo: tipo, coord: coord) }
@@ -102,10 +108,10 @@ struct RunningActiveView: View {
             // Tramo restante (muted)
             if sessionTracker.coordenadasRestantes.count > 1 {
                 MapPolyline(coordinates: sessionTracker.coordenadasRestantes)
-                    .stroke(Color.white.opacity(0.35), lineWidth: 4)
+                    .stroke(TrazoColors.routeTeal.opacity(0.45), lineWidth: 4)
             } else {
                 MapPolyline(coordinates: plan.coordinates)
-                    .stroke(Color.white.opacity(0.35), lineWidth: 4)
+                    .stroke(TrazoColors.routeTeal.opacity(0.45), lineWidth: 4)
             }
             // Tramo cubierto (brillante)
             if sessionTracker.coordenadasCubiertas.count > 1 {
@@ -255,6 +261,25 @@ struct RunningActiveView: View {
                 .foregroundStyle(.white.opacity(0.6))
         }
         .frame(maxWidth: .infinity)
+    }
+
+    // MARK: - Fuera de ruta
+
+    private var futeraDeRutaBanner: some View {
+        HStack(spacing: TrazoSpacing.sm) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.yellow)
+            Text("¡Te saliste de la ruta! Regresa al camino marcado.")
+                .font(TrazoTypography.caption())
+                .foregroundStyle(.white)
+        }
+        .padding(.horizontal, TrazoSpacing.lg)
+        .padding(.vertical, TrazoSpacing.md)
+        .background(Color.red.opacity(0.9))
+        .clipShape(Capsule())
+        .shadow(color: .black.opacity(0.3), radius: 6, y: 2)
+        .transition(.move(edge: .top).combined(with: .opacity))
+        .animation(.spring(duration: 0.4), value: sessionTracker.estaFueraDeRuta)
     }
 
     // MARK: - Helpers
