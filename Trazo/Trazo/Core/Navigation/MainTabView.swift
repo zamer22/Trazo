@@ -2,10 +2,13 @@ import SwiftData
 import SwiftUI
 
 struct MainTabView: View {
-    @State private var selectedTab: MainTab = .running
+    @Environment(\.appNavigation) private var navigation
 
     var body: some View {
-        TabView(selection: $selectedTab) {
+        TabView(selection: Binding(
+            get: { navigation.selectedTab },
+            set: { navigation.selectedTab = $0 }
+        )) {
             RunningHomeView()
                 .tabItem {
                     Label("Correr", systemImage: "figure.run")
@@ -36,5 +39,13 @@ struct MainTabView: View {
 
 #Preview {
     MainTabView()
-        .modelContainer(for: UserProfile.self, inMemory: true)
+        .modelContainer(for: [
+            UserProfile.self,
+            RunningClub.self,
+            ClubMember.self,
+            ClubMessage.self,
+            ClubInvitation.self,
+            RouteProposal.self,
+            RouteVote.self,
+        ], inMemory: true)
 }

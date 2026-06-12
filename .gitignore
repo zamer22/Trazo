@@ -5,3 +5,6 @@ xcuserdata/
 
 # macOS
 .DS_Store
+
+# Supabase secrets (copiar desde SupabaseSecrets.example.plist)
+Trazo/Trazo/Config/SupabaseSecrets.plist

@@ -65,6 +65,7 @@
 			);
 			name = Trazo;
 			packageProductDependencies = (
+				BA157F912FDBDEDB00AD865E /* Supabase */,
 			);
 			productName = Trazo;
 			productReference = BA157F742FDBDEDB00AD865E /* Trazo.app */;
@@ -94,6 +95,9 @@
 			);
 			mainGroup = BA157F6B2FDBDEDB00AD865E;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				BA157F902FDBDEDB00AD865E /* XCRemoteSwiftPackageReference "supabase-swift" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = BA157F752FDBDEDB00AD865E /* Products */;
 			projectDirPath = "";
@@ -256,6 +260,7 @@
 				DEVELOPMENT_TEAM = 5NTWT4923N;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Trazo/Config/URLTypes.plist;
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Trazo usa tu ubicación para mostrarte en el mapa y generar Trazos de running.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -289,6 +294,7 @@
 				DEVELOPMENT_TEAM = 5NTWT4923N;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Trazo/Config/URLTypes.plist;
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Trazo usa tu ubicación para mostrarte en el mapa y generar Trazos de running.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -334,6 +340,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		BA157F902FDBDEDB00AD865E /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase/supabase-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.5.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		BA157F912FDBDEDB00AD865E /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA157F902FDBDEDB00AD865E /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = BA157F6C2FDBDEDB00AD865E /* Project object */;
 }

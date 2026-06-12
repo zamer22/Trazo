@@ -11,6 +11,7 @@ import SwiftUI
 @main
 struct TrazoApp: App {
     @AppStorage("appColorScheme") private var appColorScheme = AppColorScheme.light.rawValue
+    @State private var navigation = AppNavigationCoordinator()
 
     private var colorScheme: ColorScheme {
         AppColorScheme(rawValue: appColorScheme)?.colorScheme ?? .light
@@ -19,8 +20,22 @@ struct TrazoApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
+                .environment(\.appNavigation, navigation)
                 .preferredColorScheme(colorScheme)
+                .onOpenURL { url in
+                    if let code = DeepLinkRouter.inviteCode(from: url) {
+                        navigation.openJoinClub(code: code)
+                    }
+                }
         }
-        .modelContainer(for: UserProfile.self)
+        .modelContainer(for: [
+            UserProfile.self,
+            RunningClub.self,
+            ClubMember.self,
+            ClubMessage.self,
+            ClubInvitation.self,
+            RouteProposal.self,
+            RouteVote.self,
+        ])
     }
 }
