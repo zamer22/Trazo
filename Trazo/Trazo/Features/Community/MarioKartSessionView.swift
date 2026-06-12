@@ -19,9 +19,17 @@ struct MarioKartSessionView: View {
     @State private var animandoRuleta = false
     @State private var ruletaIdx = 0
     @State private var mostrarAlertaRuta = false
+    @State private var votosTerminar: ClubService.EstadoVotosTerminar?
+    @State private var pollingVotosTask: Task<Void, Never>?
 
     private var esModoRuleta: Bool { sesion.modo == "ruleta" }
     private var sesionCorriendo: Bool { clubService.sesionActiva?.estado == "corriendo" }
+
+    private var tituloBotonTerminar: String {
+        guard let v = votosTerminar else { return "Votar terminar" }
+        if v.yaVoto { return "Esperando otros (\(v.votos)/\(v.total))" }
+        return "Votar terminar (\(v.votos)/\(v.total))"
+    }
 
     var body: some View {
         ZStack {
@@ -32,8 +40,12 @@ struct MarioKartSessionView: View {
             locationManager.requestPermission()
             locationManager.startUpdating()
             clubService.iniciarPollingSesion(clubId: club.id)
+            iniciarPollingVotos()
         }
-        .onDisappear { clubService.detenerPolling() }
+        .onDisappear {
+            clubService.detenerPolling()
+            pollingVotosTask?.cancel()
+        }
         .onChange(of: clubService.sesionActiva?.estado) { _, _ in }
         .onChange(of: clubService.sesionActiva) { _, nueva in
             if nueva == nil { dismiss() }
@@ -63,7 +75,13 @@ struct MarioKartSessionView: View {
         .fullScreenCover(item: $rutaParaCorrer) { plan in
             RunningActiveView(plan: plan, clubSesionId: sesion.id)
                 .onAppear { ActiveRunManager.shared.hayCorridaActiva = true }
-                .onDisappear { ActiveRunManager.shared.hayCorridaActiva = false }
+                .onDisappear {
+                    ActiveRunManager.shared.hayCorridaActiva = false
+                    Task {
+                        await clubService.cargarSesionActiva(clubId: club.id)
+                        if clubService.sesionActiva == nil { dismiss() }
+                    }
+                }
         }
         .alert("Ya hay una corrida activa", isPresented: $mostrarAlertaRuta) {
             Button("Entendido", role: .cancel) {}
@@ -254,6 +272,10 @@ struct MarioKartSessionView: View {
                     Task { await iniciarCorrida() }
                 }
             }
+
+            TrazoButton(title: tituloBotonTerminar, style: .secondary) {
+                Task { await votarTerminar() }
+            }
         }
     }
 
@@ -286,13 +308,8 @@ struct MarioKartSessionView: View {
                     rutaParaCorrer = plan
                 }
             }
-            TrazoButton(title: "Finalizar sesión", style: .secondary) {
-                Task {
-                    if let sesionId = clubService.sesionActiva?.id {
-                        try? await clubService.finalizarSesion(sesionId: sesionId)
-                    }
-                    dismiss()
-                }
+            TrazoButton(title: tituloBotonTerminar, style: .secondary) {
+                Task { await votarTerminar() }
             }
         }
         .padding(.top, 40)
@@ -318,6 +335,32 @@ struct MarioKartSessionView: View {
         if let json = try? await clubService.iniciarCorrida(sesionId: sesion.id),
            let plan = parsearPlan(json) {
             rutaParaCorrer = plan
+        }
+    }
+
+    private func votarTerminar() async {
+        do {
+            let estado = try await clubService.votarTerminar(sesionId: sesion.id)
+            votosTerminar = estado
+            if estado.finalizada == true { dismiss() }
+        } catch {
+            // silencio: el polling re-intentará
+        }
+    }
+
+    private func iniciarPollingVotos() {
+        pollingVotosTask?.cancel()
+        pollingVotosTask = Task { @MainActor in
+            while !Task.isCancelled {
+                if let estado = try? await clubService.estadoVotosTerminar(sesionId: sesion.id) {
+                    votosTerminar = estado
+                    if estado.total > 0 && estado.votos >= estado.total {
+                        dismiss()
+                        break
+                    }
+                }
+                try? await Task.sleep(for: .seconds(3))
+            }
         }
     }
 

@@ -44,7 +44,10 @@ final class RunningSessionTracker {
     }
 
     var haTerminado: Bool {
-        indiceMasCercano >= plan.coordinates.count - 5
+        guard let destino = plan.coordinates.last,
+              let actual = ultimaUbicacionGPS else { return false }
+        let distAlDestino = actual.distance(from: CLLocation(latitude: destino.latitude, longitude: destino.longitude))
+        return distAlDestino <= 18
     }
 
     private(set) var distanciaARutaM: Double = 0

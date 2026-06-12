@@ -21,6 +21,9 @@ struct RunningActiveView: View {
     @State private var mostrarConfirmarFinalizar = false
     @State private var pollingClubTask: Task<Void, Never>?
     @State private var finalizadoPorOtro = false
+    @State private var procesandoFinalizacion = false
+    @State private var votosTerminar: ClubService.EstadoVotosTerminar?
+    private let clubService = ClubService()
 
     let plan: RoutePlan
     let clubSesionId: UUID?
@@ -95,6 +98,15 @@ struct RunningActiveView: View {
                 voiceNav.actualizarPosicion(indiceActual: sessionTracker.indiceMasCercano)
             }
             verificarPinesCercanos(loc)
+            if sessionTracker.haTerminado && statsFinales == nil && !procesandoFinalizacion {
+                procesandoFinalizacion = true
+                sessionTracker.pausar()
+                if clubSesionId != nil {
+                    Task { await votarTerminarYFinalizar() }
+                } else {
+                    finalizarConStats(completado: true)
+                }
+            }
         }
         .onChange(of: sessionTracker.estaFueraDeRuta) { _, fueraDeRuta in
             if fueraDeRuta && voiceNavigationEnabled { voiceNav.anunciarFueraDeRuta() }
@@ -193,16 +205,16 @@ struct RunningActiveView: View {
             .accessibilityHint("Detiene la sesión y muestra el resumen de tu corrida")
             .confirmationDialog("¿Finalizar corrida?", isPresented: $mostrarConfirmarFinalizar, titleVisibility: .visible) {
                 if clubSesionId != nil {
-                    Button("Finalizar solo para mí", role: .destructive) {
+                    Button("Votar terminar", role: .destructive) {
+                        guard !procesandoFinalizacion else { return }
+                        procesandoFinalizacion = true
                         sessionTracker.pausar()
-                        finalizarConStats()
-                    }
-                    Button("Finalizar para todos", role: .destructive) {
-                        sessionTracker.pausar()
-                        Task { await finalizarParaTodos() }
+                        Task { await votarTerminarYFinalizar() }
                     }
                 } else {
                     Button("Finalizar", role: .destructive) {
+                        guard !procesandoFinalizacion else { return }
+                        procesandoFinalizacion = true
                         sessionTracker.pausar()
                         finalizarConStats()
                     }
@@ -210,7 +222,11 @@ struct RunningActiveView: View {
                 Button("Cancelar", role: .cancel) {}
             } message: {
                 if clubSesionId != nil {
-                    Text("Puedes salir solo tú o terminar la corrida del club para todos los participantes.")
+                    if let v = votosTerminar {
+                        Text("La sesión termina cuando todos voten (\(v.votos)/\(v.total)).")
+                    } else {
+                        Text("La sesión termina cuando todos los miembros voten terminar.")
+                    }
                 } else {
                     Text("Se guardará tu progreso hasta este punto.")
                 }
@@ -429,7 +445,8 @@ struct RunningActiveView: View {
                     .eq("id", value: sesionId.uuidString)
                     .single().execute().value
                 if let estado = row?.estado, estado == "finalizada" {
-                    if statsFinales == nil {
+                    if statsFinales == nil && !procesandoFinalizacion {
+                        procesandoFinalizacion = true
                         finalizadoPorOtro = true
                         sessionTracker.pausar()
                         finalizarConStats()
@@ -440,22 +457,9 @@ struct RunningActiveView: View {
         }
     }
 
-    private func finalizarParaTodos() async {
+    private func votarTerminarYFinalizar() async {
         guard let sesionId = clubSesionId else { return }
-        struct Params: Encodable { let p_sesion_id: UUID }
-        do {
-            try await SupabaseService.client
-                .rpc("finalizar_corrida_club", params: Params(p_sesion_id: sesionId))
-                .execute()
-        } catch {
-            // Fallback: intentar el update directo (por si el RPC no está desplegado)
-            struct Update: Encodable { let estado: String }
-            try? await SupabaseService.client
-                .from("sesiones_club")
-                .update(Update(estado: "finalizada"))
-                .eq("id", value: sesionId.uuidString)
-                .execute()
-        }
+        votosTerminar = try? await clubService.votarTerminar(sesionId: sesionId)
         finalizarConStats()
     }
 

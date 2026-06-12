@@ -186,14 +186,58 @@ final class ClubService {
     // MARK: - Gestión de sesión
 
     func finalizarSesion(sesionId: UUID) async throws {
-        struct Update: Encodable { let estado: String }
+        struct Params: Encodable { let p_sesion_id: UUID }
+        do {
+            try await SupabaseService.client
+                .rpc("finalizar_corrida_club", params: Params(p_sesion_id: sesionId))
+                .execute()
+        } catch {
+            struct Update: Encodable { let estado: String }
+            try? await SupabaseService.client
+                .from("sesiones_club")
+                .update(Update(estado: "finalizada"))
+                .eq("id", value: sesionId.uuidString)
+                .execute()
+        }
+        sesionActiva = nil
+        rutasPropuestas = []
+    }
+
+    func finalizarTodasSesiones(clubId: UUID) async throws {
+        struct Params: Encodable { let p_club_id: UUID }
         try await SupabaseService.client
-            .from("sesiones_club")
-            .update(Update(estado: "finalizada"))
-            .eq("id", value: sesionId.uuidString)
+            .rpc("finalizar_todas_sesiones_club", params: Params(p_club_id: clubId))
             .execute()
         sesionActiva = nil
         rutasPropuestas = []
+    }
+
+    struct EstadoVotosTerminar: Decodable {
+        let votos: Int
+        let total: Int
+        let yaVoto: Bool
+        let finalizada: Bool?
+    }
+
+    func votarTerminar(sesionId: UUID) async throws -> EstadoVotosTerminar {
+        struct Params: Encodable { let p_sesion_id: UUID }
+        let resp = try await SupabaseService.client
+            .rpc("votar_terminar_sesion", params: Params(p_sesion_id: sesionId))
+            .execute()
+        let estado = try JSONDecoder().decode(EstadoVotosTerminar.self, from: resp.data)
+        if estado.finalizada == true {
+            sesionActiva = nil
+            rutasPropuestas = []
+        }
+        return estado
+    }
+
+    func estadoVotosTerminar(sesionId: UUID) async throws -> EstadoVotosTerminar {
+        struct Params: Encodable { let p_sesion_id: UUID }
+        let resp = try await SupabaseService.client
+            .rpc("estado_votos_terminar", params: Params(p_sesion_id: sesionId))
+            .execute()
+        return try JSONDecoder().decode(EstadoVotosTerminar.self, from: resp.data)
     }
 
     // MARK: - Gestión de clubs

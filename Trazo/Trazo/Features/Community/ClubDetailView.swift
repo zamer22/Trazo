@@ -27,6 +27,7 @@ struct ClubDetailView: View {
     @State private var accionConfirmacion: AccionConfirmacion = .salir
     @State private var pollingExistenciaTask: Task<Void, Never>?
     @State private var errorMensaje: String?
+    @State private var votosTerminar: ClubService.EstadoVotosTerminar?
 
     enum Tab { case chat, sesion }
     enum AccionConfirmacion { case salir, eliminar }
@@ -308,6 +309,24 @@ struct ClubDetailView: View {
 
             TrazoButton(title: "Ver sesión y proponer ruta") {
                 mostrarMarioKart = true
+            }
+            let titulo: String = {
+                guard let v = votosTerminar else { return "Votar terminar" }
+                if v.yaVoto { return "Esperando otros (\(v.votos)/\(v.total))" }
+                return "Votar terminar (\(v.votos)/\(v.total))"
+            }()
+            TrazoButton(title: titulo, style: .secondary) {
+                Task {
+                    do {
+                        let estado = try await clubService.votarTerminar(sesionId: sesion.id)
+                        votosTerminar = estado
+                    } catch {
+                        errorMensaje = "No se pudo votar: \(error.localizedDescription)"
+                    }
+                }
+            }
+            .task(id: sesion.id) {
+                votosTerminar = try? await clubService.estadoVotosTerminar(sesionId: sesion.id)
             }
         }
     }
