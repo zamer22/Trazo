@@ -103,7 +103,7 @@ struct ProfileView: View {
                     appearanceToggleRow
 
                     preferenceRow(
-                        title: "Rutas planas",
+                        title: "Trazos planos",
                         enabled: profile.preferFlatRoutes
                     )
                     preferenceRow(
@@ -193,8 +193,8 @@ struct ProfileSettingsView: View {
                     }
                 }
 
-                Section("Rutas") {
-                    Toggle("Rutas planas", isOn: $profile.preferFlatRoutes)
+                Section("Trazo") {
+                    Toggle("Trazos planos", isOn: $profile.preferFlatRoutes)
                     Toggle("Evitar autopistas", isOn: $profile.avoidHighways)
                 }
             }

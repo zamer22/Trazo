@@ -2,10 +2,7 @@ import MapKit
 import SwiftUI
 
 enum RunningSearchMetrics {
-    /// Altura fija de la zona del search (posición del botón de ubicación).
-    static let collapsedBarHeight: CGFloat = 76
-    /// Altura del área de iconos del tab bar.
-    static let tabBarHeight: CGFloat = 100
+    static let collapsedBarHeight = TrazoBottomChromeMetrics.searchZoneHeight
 }
 
 // MARK: - Collapsed bar (fondo gris unificado: search + navbar)
@@ -14,48 +11,7 @@ struct RunningCollapsedSearchBar: View {
     let onTap: () -> Void
 
     var body: some View {
-        Button(action: onTap) {
-            HStack(spacing: TrazoSpacing.sm) {
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(TrazoColors.textSecondary)
-
-                Text("Buscar dirección")
-                    .font(TrazoTypography.body())
-                    .foregroundStyle(TrazoColors.textSecondary)
-
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, TrazoSpacing.lg)
-            .padding(.vertical, TrazoSpacing.md)
-            .background(TrazoColors.elevated.opacity(0.5))
-            .clipShape(Capsule())
-            .padding(.horizontal, TrazoSpacing.lg)
-        }
-        .buttonStyle(.plain)
-        .padding(.top, TrazoSpacing.sm + 5 + TrazoSpacing.sm)
-        .padding(.bottom, TrazoSpacing.sm + 10)
-        .frame(height: RunningSearchMetrics.collapsedBarHeight)
-        .frame(maxWidth: .infinity)
-        .background(alignment: .top) {
-            bottomChromeBackground
-        }
-    }
-
-    private var bottomChromeBackground: some View {
-        GeometryReader { geometry in
-            let chromeHeight = RunningSearchMetrics.collapsedBarHeight
-                + RunningSearchMetrics.tabBarHeight
-                + geometry.safeAreaInsets.bottom
-
-            UnevenRoundedRectangle(
-                topLeadingRadius: TrazoRadius.lg,
-                topTrailingRadius: TrazoRadius.lg
-            )
-            .fill(TrazoColors.surface)
-            .frame(height: chromeHeight)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        }
-        .ignoresSafeArea(edges: .bottom)
+        TrazoBottomSearchButton(placeholder: "Buscar dirección", onTap: onTap)
     }
 }
 

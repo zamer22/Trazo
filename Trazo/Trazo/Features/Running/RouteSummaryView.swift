@@ -44,7 +44,7 @@ struct RouteSummaryView: View {
                     }
             }
         }
-        .navigationTitle("Ruta de hoy")
+        .navigationTitle("Trazo de hoy")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
         .toolbarBackground(.hidden, for: .navigationBar)
@@ -108,7 +108,7 @@ struct RouteSummaryView: View {
     }
 
     private var shareText: String {
-        "Mi ruta en Trazo: \(formattedDistance) hacia \(plan.destinationName)"
+        "Mi Trazo: \(formattedDistance) hacia \(plan.destinationName)"
     }
 
     private func circularToolbarIcon(_ systemName: String) -> some View {

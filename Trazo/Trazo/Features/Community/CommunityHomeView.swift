@@ -34,7 +34,7 @@ struct CommunityHomeView: View {
                         .font(TrazoTypography.headline())
                         .foregroundStyle(TrazoColors.textPrimary)
 
-                    Text("Propón una ruta para el sábado...")
+                    Text("Propón un Trazo para el sábado...")
                         .font(TrazoTypography.caption())
                         .foregroundStyle(TrazoColors.textSecondary)
                         .lineLimit(1)
@@ -92,7 +92,7 @@ private struct MockChat: Identifiable {
     let color: Color
 
     static let samples: [MockChat] = [
-        MockChat(name: "Harry Fettel", initials: "HF", lastMessage: "¿Quién propone ruta mañana?", time: "9:31", color: TrazoColors.routeTeal),
+        MockChat(name: "Harry Fettel", initials: "HF", lastMessage: "¿Quién propone Trazo mañana?", time: "9:31", color: TrazoColors.routeTeal),
         MockChat(name: "Frank Garcia", initials: "FG", lastMessage: "Yo voto por el parque", time: "Ayer", color: TrazoColors.accentOrange),
         MockChat(name: "Ana Ruiz", initials: "AR", lastMessage: "Ruleta activada 🎲", time: "Ayer", color: TrazoColors.mutedTeal),
     ]

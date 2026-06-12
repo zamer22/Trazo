@@ -71,7 +71,7 @@ struct OnboardingView: View {
                 .font(TrazoTypography.largeTitle())
                 .foregroundStyle(TrazoColors.textPrimary)
 
-            Text("Cuéntanos un poco sobre ti para personalizar tus rutas de running.")
+            Text("Cuéntanos un poco sobre ti para personalizar tus Trazos de running.")
                 .font(TrazoTypography.body())
                 .foregroundStyle(TrazoColors.textSecondary)
 
@@ -189,7 +189,7 @@ struct OnboardingView: View {
         VStack(alignment: .leading, spacing: TrazoSpacing.xl) {
             Spacer()
 
-            Text("Preferencias de ruta")
+            Text("Preferencias de Trazo")
                 .font(TrazoTypography.title())
                 .foregroundStyle(TrazoColors.textPrimary)
 
@@ -203,7 +203,7 @@ struct OnboardingView: View {
             }
 
             TrazoCard {
-                Toggle("Preferir rutas planas", isOn: $preferFlatRoutes)
+                Toggle("Preferir Trazos planos", isOn: $preferFlatRoutes)
                     .font(TrazoTypography.body())
                     .tint(TrazoColors.routeTeal)
             }
