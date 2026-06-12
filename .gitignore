@@ -48,4 +48,10 @@ skills.json
 Thumbs.db
 ehthumbs.db
 desktop.ini
+# Xcode user-specific files
+xcuserdata/
+*.xcuserstate
+*.xcuserdatad
+
+# macOS
 .DS_Store
