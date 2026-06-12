@@ -21,7 +21,7 @@ struct ClubDetailView: View {
                 Divider().opacity(0.15)
                 Picker("", selection: $tab) {
                     Text("Chat").tag(Tab.chat)
-                    Text("🎲 Mario Kart").tag(Tab.sesion)
+                    Text("Rally").tag(Tab.sesion)
                 }
                 .pickerStyle(.segmented)
                 .padding(.horizontal, TrazoSpacing.xl)
@@ -181,7 +181,7 @@ struct ClubDetailView: View {
             Image(systemName: "dice.fill")
                 .font(.system(size: 56))
                 .foregroundStyle(TrazoColors.accentOrange)
-            Text("Mario Kart Mode")
+            Text("Rally Mode")
                 .font(TrazoTypography.title())
                 .foregroundStyle(TrazoColors.textPrimary)
             Text("Propón una ruta, voten en el club o activen la ruleta — ¡y salgan a correr juntos!")
@@ -189,10 +189,10 @@ struct ClubDetailView: View {
                 .foregroundStyle(TrazoColors.textSecondary)
                 .multilineTextAlignment(.center)
             VStack(spacing: TrazoSpacing.md) {
-                TrazoButton(title: "🎲 Modo Ruleta") {
+                TrazoButton(title: "Modo Ruleta") {
                     Task { await crearSesion(modo: "ruleta") }
                 }
-                TrazoButton(title: "🗳 Modo Votación", style: .secondary) {
+                TrazoButton(title: "Modo Votación", style: .secondary) {
                     Task { await crearSesion(modo: "votacion") }
                 }
             }
@@ -206,7 +206,7 @@ struct ClubDetailView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Sesión activa")
                         .font(TrazoTypography.headline()).foregroundStyle(TrazoColors.textPrimary)
-                    Text(sesion.modo == "ruleta" ? "🎲 Modo Ruleta" : "🗳 Modo Votación")
+                    Text(sesion.modo == "ruleta" ? "Modo Ruleta" : "Modo Votación")
                         .font(TrazoTypography.caption()).foregroundStyle(TrazoColors.textSecondary)
                 }
                 Spacer()

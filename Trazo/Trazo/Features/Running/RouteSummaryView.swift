@@ -72,6 +72,18 @@ struct RouteSummaryView: View {
                 .frame(width: 40, height: 5)
                 .padding(.top, TrazoSpacing.sm)
 
+            if let razon = plan.aiRazon {
+                HStack(alignment: .top, spacing: TrazoSpacing.sm) {
+                    Image(systemName: "sparkles").font(.caption.weight(.semibold)).foregroundStyle(TrazoColors.accentOrange)
+                    Text(razon).font(TrazoTypography.caption()).foregroundStyle(TrazoColors.textSecondary).fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(TrazoSpacing.md)
+                .background(TrazoColors.accentOrange.opacity(0.1))
+                .clipShape(RoundedRectangle(cornerRadius: TrazoRadius.sm, style: .continuous))
+                .padding(.horizontal, TrazoSpacing.lg)
+            }
+
             LazyVGrid(
                 columns: [GridItem(.flexible()), GridItem(.flexible())],
                 spacing: TrazoSpacing.md

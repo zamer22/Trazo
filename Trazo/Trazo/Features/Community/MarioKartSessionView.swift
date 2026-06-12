@@ -1,4 +1,5 @@
 import CoreLocation
+import MapKit
 import SwiftUI
 
 struct MarioKartSessionView: View {
@@ -10,6 +11,7 @@ struct MarioKartSessionView: View {
     let clubService: ClubService
 
     @State private var mostrarAISheet = false
+    @State private var mostrarManualSheet = false
     @State private var rutaParaCorrer: RoutePlan?
     @State private var iniciando = false
     @State private var locationManager = LocationManager()
@@ -24,11 +26,7 @@ struct MarioKartSessionView: View {
     var body: some View {
         ZStack {
             TrazoColors.background.ignoresSafeArea()
-            if let ruta = rutaParaCorrer {
-                RunningActiveView(plan: ruta)
-            } else {
-                contenidoPrincipal
-            }
+            contenidoPrincipal
         }
         .onAppear {
             locationManager.requestPermission()
@@ -50,6 +48,18 @@ struct MarioKartSessionView: View {
                 .presentationCornerRadius(TrazoRadius.lg)
                 .presentationBackground(TrazoColors.background)
             }
+        }
+        .sheet(isPresented: $mostrarManualSheet) {
+            MarioKartManualProposalSheet(
+                userLocation: locationManager.userLocation,
+                profile: profile,
+                onPropose: { plan in
+                    Task { await proponerRuta(plan) }
+                }
+            )
+            .presentationDetents([.large])
+            .presentationCornerRadius(TrazoRadius.lg)
+            .presentationBackground(TrazoColors.background)
         }
         .fullScreenCover(item: $rutaParaCorrer) { plan in
             RunningActiveView(plan: plan)
@@ -104,8 +114,9 @@ struct MarioKartSessionView: View {
 
     private var modoHeader: some View {
         VStack(spacing: TrazoSpacing.md) {
-            Text(esModoRuleta ? "🎲" : "🗳️")
-                .font(.system(size: 48))
+            Image(systemName: esModoRuleta ? "dice.fill" : "checklist")
+                .font(.system(size: 44))
+                .foregroundStyle(TrazoColors.routeTeal)
             Text(esModoRuleta ? "Modo Ruleta" : "Modo Votación")
                 .font(TrazoTypography.title()).foregroundStyle(TrazoColors.textPrimary)
             Text(esModoRuleta
@@ -130,7 +141,7 @@ struct MarioKartSessionView: View {
                 }
             }
             if clubService.rutasPropuestas.isEmpty {
-                Text("Nadie ha propuesto una ruta todavía. ¡Sé el primero!")
+                Text("Nadie ha propuesto una ruta todavía. Sé el primero.")
                     .font(TrazoTypography.body()).foregroundStyle(TrazoColors.textSecondary)
                     .padding(TrazoSpacing.xl)
                     .frame(maxWidth: .infinity)
@@ -149,40 +160,50 @@ struct MarioKartSessionView: View {
         let esElMio = ruta.userId == profile?.id
         let voté = clubService.miVotoId == ruta.id
 
-        return VStack(alignment: .leading, spacing: TrazoSpacing.sm) {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Propuesta por \(ruta.nombreUsuario)")
-                        .font(TrazoTypography.caption()).foregroundStyle(TrazoColors.textSecondary)
-                    HStack(spacing: TrazoSpacing.md) {
-                        if let p = plan {
-                            Label(String(format: "%.1f km", p.distanceKm), systemImage: "figure.run")
-                            Label("\(p.estimatedMinutes) min", systemImage: "clock")
+        return VStack(alignment: .leading, spacing: 0) {
+            if let p = plan, p.coordinates.count > 1 {
+                miniMapaRuta(p)
+            }
+            VStack(alignment: .leading, spacing: TrazoSpacing.sm) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Propuesta por \(ruta.nombreUsuario)")
+                            .font(TrazoTypography.caption()).foregroundStyle(TrazoColors.textSecondary)
+                        HStack(spacing: TrazoSpacing.md) {
+                            if let p = plan {
+                                Label(String(format: "%.1f km", p.distanceKm), systemImage: "figure.run")
+                                Label("\(p.estimatedMinutes) min", systemImage: "clock")
+                                Label("\(p.desnivel)", systemImage: "arrow.up.right")
+                            }
                         }
+                        .font(TrazoTypography.caption()).foregroundStyle(TrazoColors.textPrimary)
                     }
-                    .font(TrazoTypography.caption()).foregroundStyle(TrazoColors.textPrimary)
-                }
-                Spacer()
-                if !esModoRuleta && !esElMio {
-                    Button {
-                        Task { try? await clubService.votar(sesionId: sesion.id, rutaId: ruta.id, userId: profile!.id) }
-                    } label: {
+                    Spacer()
+                    if !esModoRuleta && !esElMio {
+                        Button {
+                            Task { try? await clubService.votar(sesionId: sesion.id, rutaId: ruta.id, userId: profile!.id) }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: voté ? "hand.thumbsup.fill" : "hand.thumbsup")
+                                Text("\(ruta.votos)")
+                            }
+                            .font(TrazoTypography.caption())
+                            .foregroundStyle(voté ? .white : TrazoColors.routeTeal)
+                            .padding(.horizontal, TrazoSpacing.md).padding(.vertical, TrazoSpacing.sm)
+                            .background(voté ? TrazoColors.routeTeal : TrazoColors.routeTeal.opacity(0.12))
+                            .clipShape(Capsule())
+                        }
+                    } else if esModoRuleta {
                         HStack(spacing: 4) {
-                            Image(systemName: voté ? "hand.thumbsup.fill" : "hand.thumbsup")
+                            Image(systemName: "hand.thumbsup")
                             Text("\(ruta.votos)")
                         }
-                        .font(TrazoTypography.caption())
-                        .foregroundStyle(voté ? .white : TrazoColors.routeTeal)
-                        .padding(.horizontal, TrazoSpacing.md).padding(.vertical, TrazoSpacing.sm)
-                        .background(voté ? TrazoColors.routeTeal : TrazoColors.routeTeal.opacity(0.12))
-                        .clipShape(Capsule())
+                        .font(TrazoTypography.caption()).foregroundStyle(TrazoColors.textSecondary)
                     }
-                } else if esModoRuleta {
-                    Text("\(ruta.votos) 👍").font(TrazoTypography.caption()).foregroundStyle(TrazoColors.textSecondary)
                 }
             }
+            .padding(TrazoSpacing.lg)
         }
-        .padding(TrazoSpacing.lg)
         .background(TrazoColors.surface)
         .clipShape(RoundedRectangle(cornerRadius: TrazoRadius.md, style: .continuous))
         .overlay(
@@ -191,16 +212,43 @@ struct MarioKartSessionView: View {
         )
     }
 
+    private func miniMapaRuta(_ plan: RoutePlan) -> some View {
+        let coords = plan.coordinates
+        let region = MKCoordinateRegion(
+            center: coords[coords.count / 2],
+            span: MKCoordinateSpan(latitudeDelta: 0.04, longitudeDelta: 0.04)
+        )
+        let camPos = MapCameraPosition.region(region)
+        return Map(position: .constant(camPos)) {
+            MapPolyline(coordinates: coords).stroke(TrazoColors.routeTeal, lineWidth: 3)
+        }
+        .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
+        .mapControls { }
+        .frame(height: 100)
+        .clipShape(UnevenRoundedRectangle(topLeadingRadius: TrazoRadius.md, topTrailingRadius: TrazoRadius.md))
+        .allowsHitTesting(false)
+    }
+
     // MARK: - Acciones
 
     private var accionesSection: some View {
         VStack(spacing: TrazoSpacing.md) {
-            TrazoButton(title: "✨ Proponer Trazo con IA") {
-                mostrarAISheet = true
+            HStack(spacing: TrazoSpacing.sm) {
+                Button {
+                    mostrarAISheet = true
+                } label: {
+                    proposeButtonLabel(icono: "sparkles", titulo: "Con IA", color: TrazoColors.accentOrange)
+                }
+                Button {
+                    mostrarManualSheet = true
+                } label: {
+                    proposeButtonLabel(icono: "map", titulo: "Manual", color: TrazoColors.routeTeal)
+                }
             }
+
             if clubService.rutasPropuestas.count >= 1 {
                 TrazoButton(
-                    title: iniciando ? "Iniciando..." : (esModoRuleta ? "🎲 ¡Girar ruleta!" : "🏁 ¡Correr la más votada!"),
+                    title: iniciando ? "Iniciando..." : (esModoRuleta ? "Girar ruleta" : "Correr la más votada"),
                     style: .primary,
                     isEnabled: !iniciando
                 ) {
@@ -210,6 +258,19 @@ struct MarioKartSessionView: View {
         }
     }
 
+    private func proposeButtonLabel(icono: String, titulo: String, color: Color) -> some View {
+        HStack(spacing: TrazoSpacing.xs) {
+            Image(systemName: icono)
+            Text("Proponer \(titulo)")
+        }
+        .font(TrazoTypography.body().weight(.semibold))
+        .foregroundStyle(color)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, TrazoSpacing.md)
+        .background(color.opacity(0.15))
+        .clipShape(RoundedRectangle(cornerRadius: TrazoRadius.sm, style: .continuous))
+    }
+
     // MARK: - Corrida activa
 
     private var corridaActivaView: some View {
@@ -217,12 +278,12 @@ struct MarioKartSessionView: View {
             Image(systemName: "flag.checkered")
                 .font(.system(size: 56))
                 .foregroundStyle(TrazoColors.routeTeal)
-            Text("¡La ruta fue elegida!").font(TrazoTypography.title()).foregroundStyle(TrazoColors.textPrimary)
+            Text("La ruta fue elegida").font(TrazoTypography.title()).foregroundStyle(TrazoColors.textPrimary)
             Text("Todos los miembros ya pueden correr la ruta seleccionada.")
                 .font(TrazoTypography.body()).foregroundStyle(TrazoColors.textSecondary)
                 .multilineTextAlignment(.center)
             if let json = clubService.sesionActiva?.rutaGanadoraJson, let plan = parsearPlan(json) {
-                TrazoButton(title: "🏃 Empezar a correr") {
+                TrazoButton(title: "Empezar a correr") {
                     rutaParaCorrer = plan
                 }
             }

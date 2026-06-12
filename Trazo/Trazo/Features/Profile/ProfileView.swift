@@ -20,7 +20,7 @@ struct ProfileView: View {
                 VStack(spacing: TrazoSpacing.lg) {
                     if let profile {
                         header(for: profile)
-                        statsSection(for: profile)
+                        healthSection(for: profile)
                         preferencesSection(for: profile)
                     } else {
                         FeaturePlaceholderView(
@@ -82,13 +82,42 @@ struct ProfileView: View {
     }
 
     @ViewBuilder
+    private func healthSection(for profile: UserProfile) -> some View {
+        VStack(alignment: .leading, spacing: TrazoSpacing.md) {
+            HStack(spacing: TrazoSpacing.xs) {
+                Image(systemName: "heart.fill").font(.caption).foregroundStyle(.red)
+                Text("Datos de salud")
+                    .font(TrazoTypography.headline())
+                    .foregroundStyle(TrazoColors.textPrimary)
+            }
+            statsSection(for: profile)
+        }
+    }
+
+    @ViewBuilder
     private func statsSection(for profile: UserProfile) -> some View {
-        LazyVGrid(
-            columns: [GridItem(.flexible()), GridItem(.flexible())],
-            spacing: TrazoSpacing.md
-        ) {
-            TrazoStatCard(label: "Peso", value: "\(Int(profile.weightKg)) kg")
-            TrazoStatCard(label: "Ritmo", value: profile.formattedPace)
+        VStack(alignment: .leading, spacing: TrazoSpacing.md) {
+            LazyVGrid(
+                columns: [GridItem(.flexible()), GridItem(.flexible())],
+                spacing: TrazoSpacing.md
+            ) {
+                TrazoStatCard(label: "Peso", value: "\(Int(profile.weightKg)) kg")
+                TrazoStatCard(label: "Ritmo", value: profile.formattedPace)
+                if let h = profile.heightCm { TrazoStatCard(label: "Altura", value: "\(Int(h)) cm") }
+                if let a = profile.age      { TrazoStatCard(label: "Edad",   value: "\(a) años")    }
+                if let r = profile.weeklyRuns { TrazoStatCard(label: "Corridas/semana", value: "\(r)") }
+                if let vo2 = profile.vo2Max { TrazoStatCard(label: "VO₂ máx", value: String(format: "%.0f", vo2)) }
+                if let hr = profile.restingHR { TrazoStatCard(label: "FC reposo", value: "\(hr) lpm") }
+            }
+            if profile.healthLinked {
+                HStack(spacing: TrazoSpacing.xs) {
+                    Image(systemName: "heart.fill").font(.caption2).foregroundStyle(.red)
+                    Text("Datos sincronizados de Apple Health. Edítalos en la app Salud.")
+                        .font(TrazoTypography.caption())
+                        .foregroundStyle(TrazoColors.textSecondary)
+                }
+                .padding(.horizontal, TrazoSpacing.sm)
+            }
         }
     }
 

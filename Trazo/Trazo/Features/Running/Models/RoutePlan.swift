@@ -25,6 +25,7 @@ struct RoutePlan: Hashable, Identifiable {
     let estimatedCalories: Int
     let averagePace: String
     let gananciaElevacionM: Int
+    var aiRazon: String?
 
     var desnivel: String {
         switch gananciaElevacionM {

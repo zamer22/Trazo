@@ -163,11 +163,16 @@ final class ClubService {
         let resp = try await SupabaseService.client
             .rpc("iniciar_corrida_club", params: Params(p_sesion_id: sesionId))
             .execute()
-        // RPC returns the JSON string directly
         let data = resp.data
-        guard let str = String(data: data, encoding: .utf8) else { return nil }
-        let trimmed = str.trimmingCharacters(in: CharacterSet(charactersIn: "\""))
-        return trimmed.isEmpty ? nil : trimmed
+        // Caso 1: RPC devuelve un string JSON-encoded ("\"...\"") — text column
+        if let jsonStr = try? JSONDecoder().decode(String.self, from: data), !jsonStr.isEmpty {
+            return jsonStr
+        }
+        // Caso 2: RPC devuelve el objeto JSON directamente — jsonb column
+        if let raw = String(data: data, encoding: .utf8), !raw.isEmpty, raw != "null" {
+            return raw
+        }
+        return nil
     }
 
     func cargarRutasPropuestas(sesionId: UUID) async {

@@ -12,6 +12,9 @@ struct IntentTrazo {
 
     @Guide(description: "Etiqueta motivadora de máximo 5 palabras en español que resuma la ruta")
     var etiqueta: String
+
+    @Guide(description: "Razón corta en español (máximo 2 oraciones) explicando por qué esta configuración es ideal para el corredor dado su prompt y su perfil. Si el perfil limita algo que pidió el usuario, explícalo brevemente.")
+    var razon: String
 }
 
 @MainActor
@@ -31,7 +34,9 @@ final class AITrazoService {
         estado = .procesando
 
         guard SystemLanguageModel.default.isAvailable else {
-            estado = .error("Modelos de IA no disponibles en este dispositivo.")
+            let km = 5.0
+            let nivel = perfil?.fitnessLevelRaw ?? "Intermedio"
+            estado = .listo(IntentTrazo(distanciaKm: km, dificultad: "moderada", etiqueta: "Trazo recomendado", razon: "Ruta moderada de \(Int(km)) km ideal para nivel \(nivel)."))
             return
         }
 
@@ -42,7 +47,8 @@ final class AITrazoService {
             let respuesta = try await session.respond(to: prompt, generating: IntentTrazo.self)
             estado = .listo(respuesta.content)
         } catch {
-            estado = .error("No pude interpretar tu solicitud. Intenta de nuevo.")
+            let km = 5.0
+            estado = .listo(IntentTrazo(distanciaKm: km, dificultad: "moderada", etiqueta: "Trazo recomendado", razon: "Ruta moderada basada en tu perfil."))
         }
     }
 
@@ -52,16 +58,15 @@ final class AITrazoService {
 
     private func buildInstrucciones(_ perfil: UserProfile?) -> String {
         var partes = [
-            "Eres un asistente de running. Tu trabajo es interpretar lo que el usuario quiere correr.",
-            "REGLA PRINCIPAL: lo que el usuario pide en su mensaje tiene prioridad absoluta.",
-            "Si menciona distancia (ej: '2km', '10 kilómetros'), úsala exactamente.",
-            "Si menciona dificultad ('suave', 'exigente', 'tranquilo'), respétala.",
-            "El perfil del usuario es contexto secundario: úsalo SOLO para rellenar lo que el usuario NO especificó.",
-            "Si el usuario dice 'sorpréndeme' o no da detalles, entonces sí usa el perfil para elegir algo interesante y apropiado.",
-            "La dificultad debe ser exactamente: 'plana', 'moderada' o 'exigente'."
+            "Eres un coach de running. Tu trabajo es interpretar lo que el usuario quiere correr respetando su prompt Y cuidando su salud.",
+            "PRIORIDAD 1: el prompt del usuario. Si menciona distancia (ej: '5km'), úsala exactamente. Si menciona un lugar o tipo de ruta, respétalo.",
+            "PRIORIDAD 2: el perfil del corredor. Si el perfil indica nivel Principiante o condición física baja, cap la distancia a 10km y la dificultad a moderada, aunque el usuario pida algo más exigente.",
+            "Si el usuario dice 'sorpréndeme' o no da detalles, usa el perfil para elegir distancia y dificultad apropiadas.",
+            "La dificultad debe ser exactamente: 'plana', 'moderada' o 'exigente'.",
+            "En el campo 'razon', explica brevemente por qué elegiste estos parámetros considerando el prompt y el perfil."
         ]
         if let perfil {
-            partes.append("--- Perfil del corredor (contexto secundario) ---")
+            partes.append("--- Perfil del corredor ---")
             partes.append("Nivel: \(perfil.fitnessLevelRaw).")
             partes.append("Ritmo promedio: \(perfil.formattedPace).")
             if let vo2 = perfil.vo2Max { partes.append("VO₂ máx: \(Int(vo2)).") }

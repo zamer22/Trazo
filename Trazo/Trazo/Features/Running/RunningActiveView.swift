@@ -14,6 +14,8 @@ struct RunningActiveView: View {
     @State private var statsFinales: RunStats?
     @State private var cameraPosition: MapCameraPosition = .automatic
     @State private var barraStatsHeight: CGFloat = 160
+    @State private var siguiendoUsuario = true
+    @State private var actualizandoCamara = false
 
     let plan: RoutePlan
 
@@ -142,7 +144,10 @@ struct RunningActiveView: View {
             }
         }
         .mapStyle(.standard(elevation: .automatic, pointsOfInterest: .excludingAll))
-        .mapControls { }
+        .mapControls { MapScaleView() }
+        .onMapCameraChange { _ in
+            if !actualizandoCamara { siguiendoUsuario = false }
+        }
     }
 
     // MARK: - Barra superior
@@ -189,18 +194,36 @@ struct RunningActiveView: View {
     // MARK: - Botón cámara
 
     private var botonCamara: some View {
-        Button {
-            isReportando = true
-        } label: {
-            Image(systemName: "camera.fill")
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(.white)
-                .frame(width: 52, height: 52)
-                .background(TrazoColors.accentOrange)
-                .clipShape(Circle())
-                .shadow(color: TrazoColors.accentOrange.opacity(0.5), radius: 8, y: 3)
+        VStack(spacing: TrazoSpacing.sm) {
+            if !siguiendoUsuario {
+                Button {
+                    siguiendoUsuario = true
+                    if let loc = locationManager.userLocation { seguirConCamara(loc) }
+                } label: {
+                    Image(systemName: "location.fill")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 44, height: 44)
+                        .background(TrazoColors.routeTeal)
+                        .clipShape(Circle())
+                        .shadow(color: TrazoColors.routeTeal.opacity(0.5), radius: 6, y: 2)
+                }
+                .transition(.scale.combined(with: .opacity))
+            }
+            Button {
+                isReportando = true
+            } label: {
+                Image(systemName: "camera.fill")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 52, height: 52)
+                    .background(TrazoColors.accentOrange)
+                    .clipShape(Circle())
+                    .shadow(color: TrazoColors.accentOrange.opacity(0.5), radius: 8, y: 3)
+            }
+            .accessibilityLabel("Reportar problema en la ruta")
         }
-        .accessibilityLabel("Reportar problema en la ruta")
+        .animation(.spring(duration: 0.3), value: siguiendoUsuario)
     }
 
     // MARK: - Panel de stats
@@ -285,14 +308,31 @@ struct RunningActiveView: View {
     // MARK: - Helpers
 
     private func seguirConCamara(_ loc: CLLocationCoordinate2D) {
+        guard siguiendoUsuario else { return }
+        let proximaCoordenada = sessionTracker.coordenadasRestantes.first ?? plan.coordinates.first ?? loc
+        let rumbo = calcularRumbo(desde: loc, hacia: proximaCoordenada)
+        actualizandoCamara = true
         withAnimation(.easeInOut(duration: 0.5)) {
             cameraPosition = .camera(MapCamera(
                 centerCoordinate: loc,
-                distance: 350,
-                heading: 0,
+                distance: 250,
+                heading: rumbo,
                 pitch: 0
             ))
         }
+        Task {
+            try? await Task.sleep(for: .milliseconds(700))
+            actualizandoCamara = false
+        }
+    }
+
+    private func calcularRumbo(desde: CLLocationCoordinate2D, hacia: CLLocationCoordinate2D) -> Double {
+        let lat1 = desde.latitude * .pi / 180
+        let lat2 = hacia.latitude * .pi / 180
+        let dLon = (hacia.longitude - desde.longitude) * .pi / 180
+        let y = sin(dLon) * cos(lat2)
+        let x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(dLon)
+        return (atan2(y, x) * 180 / .pi + 360).truncatingRemainder(dividingBy: 360)
     }
 
     private func cargarPines() async {

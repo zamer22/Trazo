@@ -24,6 +24,7 @@ struct AITrazoSheet: View {
     @State private var promptText = ""
     @State private var modoRuta: ModoRuta = .circular
     @State private var routeError: String?
+    @State private var intentRazon: String?
     @FocusState private var inputFocused: Bool
 
     let userLocation: CLLocationCoordinate2D?
@@ -164,6 +165,15 @@ struct AITrazoSheet: View {
     private func opcionesSection(_ planes: [RoutePlan]) -> some View {
         VStack(alignment: .leading, spacing: TrazoSpacing.md) {
             Text("Elige tu Trazo").font(TrazoTypography.headline()).foregroundStyle(TrazoColors.textPrimary)
+            if let razon = intentRazon {
+                HStack(alignment: .top, spacing: TrazoSpacing.sm) {
+                    Image(systemName: "sparkles").font(.caption).foregroundStyle(TrazoColors.accentOrange)
+                    Text(razon).font(TrazoTypography.caption()).foregroundStyle(TrazoColors.textSecondary).fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(TrazoSpacing.md)
+                .background(TrazoColors.accentOrange.opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: TrazoRadius.sm, style: .continuous))
+            }
             ForEach(Array(planes.enumerated()), id: \.element.id) { idx, plan in
                 routeOptionCard(plan: plan, bearing: bearings[safe: idx] ?? Double(idx * 90))
             }
@@ -172,8 +182,10 @@ struct AITrazoSheet: View {
 
     private func routeOptionCard(plan: RoutePlan, bearing: Double) -> some View {
         Button {
+            var planConRazon = plan
+            planConRazon.aiRazon = intentRazon
             dismiss()
-            onRouteReady(plan)
+            onRouteReady(planConRazon)
         } label: {
             VStack(alignment: .leading, spacing: 0) {
                 // Mini mapa
@@ -294,6 +306,7 @@ struct AITrazoSheet: View {
             return
         }
 
+        intentRazon = intent.razon.isEmpty ? nil : intent.razon
         estadoRutas = .generando
 
         let planes = await withTaskGroup(of: RoutePlan?.self) { group in
