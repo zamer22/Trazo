@@ -9,7 +9,7 @@ enum RouteCalculatorError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .missingUserLocation: "No pudimos obtener tu ubicación."
-        case .noRouteFound: "No se encontró una ruta caminable hasta ese punto."
+        case .noRouteFound: "No se encontró un Trazo caminable hasta ese punto."
         }
     }
 }
