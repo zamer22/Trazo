@@ -21,6 +21,7 @@ struct RunningLocationSearchSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @Bindable var searchService: AddressSearchService
+    @Bindable var searchHistory: SearchHistoryStore
     let popularLocations: [PopularLocation]
     let onSelect: (MapDestination) -> Void
 
@@ -39,9 +40,10 @@ struct RunningLocationSearchSheet: View {
 
                 searchResultsList
             }
-            .background(TrazoColors.background)
+            .background(TrazoColors.surface)
             .navigationTitle("Buscar dirección")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(TrazoColors.surface, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cerrar") { dismiss() }
@@ -91,6 +93,15 @@ struct RunningLocationSearchSheet: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
                 if searchService.query.isEmpty {
+                    if !searchHistory.items.isEmpty {
+                        sectionHeader("Recientes")
+                        ForEach(searchHistory.items) { item in
+                            locationRow(title: item.title, subtitle: item.subtitle) {
+                                selectRecent(item)
+                            }
+                        }
+                    }
+
                     sectionHeader("Populares")
                     ForEach(popularLocations) { location in
                         locationRow(title: location.name, subtitle: location.subtitle) {
@@ -148,12 +159,17 @@ struct RunningLocationSearchSheet: View {
         .buttonStyle(.plain)
     }
 
+    private func selectRecent(_ item: RecentSearch) {
+        let destination = item.asMapDestination()
+        finishSelection(destination, title: item.title, subtitle: item.subtitle)
+    }
+
     private func selectPopular(_ location: PopularLocation) async {
         isResolving = true
         defer { isResolving = false }
         do {
             let destination = try await location.asMapDestination()
-            finishSelection(destination)
+            finishSelection(destination, title: location.name, subtitle: location.subtitle)
         } catch {}
     }
 
@@ -162,11 +178,16 @@ struct RunningLocationSearchSheet: View {
         defer { isResolving = false }
         do {
             let destination = try await searchService.resolve(result)
-            finishSelection(destination)
+            finishSelection(destination, title: result.title, subtitle: result.subtitle)
         } catch {}
     }
 
-    private func finishSelection(_ destination: MapDestination) {
+    private func finishSelection(
+        _ destination: MapDestination,
+        title: String,
+        subtitle: String = ""
+    ) {
+        searchHistory.add(destination: destination, title: title, subtitle: subtitle)
         searchService.query = ""
         searchService.results = []
         onSelect(destination)

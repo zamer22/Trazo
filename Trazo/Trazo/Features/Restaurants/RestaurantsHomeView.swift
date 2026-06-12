@@ -60,6 +60,7 @@ struct RestaurantsHomeView: View {
         .padding(.horizontal, TrazoSpacing.lg)
         .padding(.top, TrazoSpacing.sm)
         .padding(.bottom, TrazoSpacing.md)
+        .background(TrazoColors.surface)
     }
 
     private var restaurantMap: some View {

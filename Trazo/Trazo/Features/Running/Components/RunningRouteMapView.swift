@@ -7,6 +7,7 @@ struct RunningRouteMapView: View {
     var routeCoordinates: [CLLocationCoordinate2D]
     var allowsPlacingPin: Bool = false
     var recenterTrigger: Int = 0
+    var destinationFitTrigger: Int = 0
     var mapSize: CGSize = .zero
     var mapEdgePadding: UIEdgeInsets = .zero
     var onMapLongPress: ((CLLocationCoordinate2D) -> Void)?
@@ -15,8 +16,8 @@ struct RunningRouteMapView: View {
     @State private var cameraPosition: MapCameraPosition = .automatic
     @State private var hasSetInitialCamera = false
 
-    private var usesEdgePaddingFit: Bool {
-        !routeCoordinates.isEmpty && mapSize.width > 0 && mapEdgePadding.bottom > 0
+    private var canFitWithEdgePadding: Bool {
+        mapSize.width > 0 && mapSize.height > 0 && mapEdgePadding.bottom > 0
     }
 
     var body: some View {
@@ -29,10 +30,10 @@ struct RunningRouteMapView: View {
                         if let onPinDoubleTap {
                             DestinationPinView(onDoubleTap: onPinDoubleTap)
                         } else {
-                            Image(systemName: "flag.circle.fill")
-                                .font(.system(size: 28))
-                                .foregroundStyle(TrazoColors.routeTeal)
-                                .background(Circle().fill(.white).padding(2))
+                            Image(systemName: "mappin.circle.fill")
+                                .font(.system(size: 36))
+                                .foregroundStyle(TrazoColors.accentOrange)
+                                .shadow(color: .black.opacity(0.25), radius: 4, y: 2)
                         }
                     }
                 }
@@ -57,8 +58,20 @@ struct RunningRouteMapView: View {
             .mapStyle(.standard(elevation: .flat, emphasis: .muted))
             .onAppear { setInitialCameraIfNeeded() }
             .onChange(of: routeCoordinates.count) { _, _ in fitRouteCamera() }
-            .onChange(of: mapEdgePadding.bottom) { _, _ in fitRouteCamera() }
-            .onChange(of: mapSize.height) { _, _ in fitRouteCamera() }
+            .onChange(of: mapEdgePadding.bottom) { _, _ in
+                fitRouteCamera()
+                fitUserAndDestination()
+            }
+            .onChange(of: mapSize.height) { _, _ in
+                fitRouteCamera()
+                fitUserAndDestination()
+            }
+            .onChange(of: destinationFitTrigger) { _, _ in fitUserAndDestination() }
+            .onChange(of: userLocation?.latitude) { _, _ in
+                if destination != nil, destinationFitTrigger > 0 {
+                    fitUserAndDestination()
+                }
+            }
             .onChange(of: recenterTrigger) { _, _ in centerOnUser() }
             .simultaneousGesture(longPressGesture(proxy: proxy))
         }
@@ -102,15 +115,29 @@ struct RunningRouteMapView: View {
         ))
     }
 
-    private func fitRouteCamera() {
-        guard !routeCoordinates.isEmpty else { return }
+    private func fitUserAndDestination() {
+        guard destinationFitTrigger > 0,
+              let userLocation,
+              let destination,
+              canFitWithEdgePadding else { return }
 
-        if usesEdgePaddingFit {
+        let coordinates = [userLocation, destination.coordinate]
+        withAnimation(.easeInOut(duration: 0.45)) {
             cameraPosition = MapCameraFitter.cameraPosition(
-                for: routeCoordinates,
+                for: coordinates,
                 mapSize: mapSize,
                 edgePadding: mapEdgePadding
             )
         }
+    }
+
+    private func fitRouteCamera() {
+        guard !routeCoordinates.isEmpty, canFitWithEdgePadding else { return }
+
+        cameraPosition = MapCameraFitter.cameraPosition(
+            for: routeCoordinates,
+            mapSize: mapSize,
+            edgePadding: mapEdgePadding
+        )
     }
 }
