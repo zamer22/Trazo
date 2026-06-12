@@ -1,3 +1,4 @@
+import AVFoundation
 import CoreLocation
 import SwiftUI
 import UIKit
@@ -5,13 +6,15 @@ import UIKit
 // MARK: - Camera picker wrapper
 
 private struct CameraPicker: UIViewControllerRepresentable {
+    let preferCamera: Bool
     let onImage: (UIImage) -> Void
 
     func makeCoordinator() -> Coordinator { Coordinator(onImage: onImage) }
 
     func makeUIViewController(context: Context) -> UIImagePickerController {
         let vc = UIImagePickerController()
-        vc.sourceType = UIImagePickerController.isSourceTypeAvailable(.camera) ? .camera : .photoLibrary
+        let cameraDisponible = preferCamera && UIImagePickerController.isSourceTypeAvailable(.camera)
+        vc.sourceType = cameraDisponible ? .camera : .photoLibrary
         vc.delegate = context.coordinator
         return vc
     }
@@ -46,6 +49,8 @@ struct PinReporteSheet: View {
     @State private var modo: ModoPicker = .foto
     @State private var clasificador = ClasificadorFotoService()
     @State private var mostrarCamara = false
+    @State private var usarCamaraReal = true
+    @State private var mostrarAlertaPermiso = false
     @State private var imagenUI: UIImage?
     @State private var tipoManual: String? = nil
     @State private var guardando = false
@@ -94,6 +99,19 @@ struct PinReporteSheet: View {
             )) {
                 Button("OK", role: .cancel) {}
             } message: { Text(errorMsg ?? "") }
+            .alert("Permiso de cámara", isPresented: $mostrarAlertaPermiso) {
+                Button("Abrir Ajustes") {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url)
+                    }
+                }
+                Button("Usar fotos", role: .cancel) {
+                    usarCamaraReal = false
+                    mostrarCamara = true
+                }
+            } message: {
+                Text("Trazo necesita acceso a la cámara para tomar fotos del problema. Puedes habilitarlo en Ajustes o elegir una foto de tu galería.")
+            }
         }
     }
 
@@ -127,7 +145,7 @@ struct PinReporteSheet: View {
                 .font(TrazoTypography.caption())
                 .foregroundStyle(TrazoColors.textSecondary)
 
-            Button { mostrarCamara = true } label: {
+            Button { solicitarCamara() } label: {
                 ZStack {
                     RoundedRectangle(cornerRadius: TrazoRadius.md, style: .continuous)
                         .fill(TrazoColors.surface)
@@ -153,7 +171,7 @@ struct PinReporteSheet: View {
             }
             .buttonStyle(.plain)
             .fullScreenCover(isPresented: $mostrarCamara) {
-                CameraPicker { img in
+                CameraPicker(preferCamera: usarCamaraReal) { img in
                     imagenUI = img
                     Task { await clasificador.analizar(img) }
                 }
@@ -279,6 +297,34 @@ struct PinReporteSheet: View {
     }
 
     // MARK: - Lógica
+
+    private func solicitarCamara() {
+        guard UIImagePickerController.isSourceTypeAvailable(.camera) else {
+            usarCamaraReal = false
+            mostrarCamara = true
+            return
+        }
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:
+            usarCamaraReal = true
+            mostrarCamara = true
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .video) { concedido in
+                Task { @MainActor in
+                    if concedido {
+                        usarCamaraReal = true
+                        mostrarCamara = true
+                    } else {
+                        mostrarAlertaPermiso = true
+                    }
+                }
+            }
+        case .denied, .restricted:
+            mostrarAlertaPermiso = true
+        @unknown default:
+            mostrarAlertaPermiso = true
+        }
+    }
 
     private func guardarPin(tipo: String) async {
         guard let loc = userLocation, let uid = userId ?? profile?.id else {
